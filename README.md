@@ -44,9 +44,10 @@ docker run \
     --user $(id -u):$(id -g) --group-add 100 \
     -v $(pwd)/test_data/:/input/ -v $(pwd):/output/ \
     ${CONTAINER_TAG}:latest \
-    /input/<input_file1.fa.gz> \
-    /input/<input_file2.fa.gz> \
-    --output_label <my_analysis>
+    run /home/epi2melabs/workflow.nf \
+    --fastq /input/test_data/fastq_data \
+    --reference /input/test_data/someref.fasta \
+    --output /output/output_directory/
 ```
 
 The output of the pipeline will be found in `./<my_analysis>` for the above
