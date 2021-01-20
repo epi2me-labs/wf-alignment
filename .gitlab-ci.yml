@@ -12,7 +12,6 @@ build-image:
         - docker build --no-cache -t "${TAG}" -f Dockerfile .
         - docker run --user $(id -u):$(id -g) --group-add 100 
           -v $(pwd)/test_data/:/input/ -v $(pwd):/output/ 
-          ${TAG} 
-          --help
+          ${TAG} run /home/epi2melabs/workflow.nf --help
         - docker tag "${TAG}" "${CI_REGISTRY_IMAGE}:latest"
         - docker push "${CI_REGISTRY_IMAGE}:latest"
