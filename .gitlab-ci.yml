@@ -1,16 +1,7 @@
 stages:
-    - test
     - build_and_run
 
 image: ${IMAGE}
-
-flake8:
-    stage: test
-    script:
-        - apk add python3
-        - python3 -m venv test_env
-        - test_env/bin/pip install flake8 flake8-rst-docstrings flake8-docstrings flake8-import-order
-        - test_env/bin/flake8 run_workflow --import-order-style google --statistics
 
 build-image:
     stage: build_and_run
