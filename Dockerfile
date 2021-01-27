@@ -55,7 +55,6 @@ RUN \
             python=3.8 \
             samtools \
             minimap2 \
-            nextflow \
             pandas \
             pysam \
         -c conda-forge -c bioconda -q -y \
@@ -68,13 +67,6 @@ COPY --chown=$WF_UID glue $HOME/glue
 RUN \
     cd glue \
     && python setup.py install
-
-# Add workflow
-COPY workflow.nf $HOME
-
-#COPY run_workflow ${CONDA_DIR}/bin/
-ENTRYPOINT ["nextflow"]
-CMD ["run", "/home/epi2melabs/workflow.nf", "--help"]
 
 USER $WF_UID
 WORKDIR $HOME

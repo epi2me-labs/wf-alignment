@@ -1,61 +1,43 @@
-# Containered Workflow template
+# Mapping Workflow
 
-This repository comprises a template for constructing a workflow container
-using micromamba to install most software. It handles user permissions
-and establishes a basic IO contract.
+This repository contains a nextflow workflow and associated Docker
+container build for performing mapping (aka alignment) with minimap2
+from basecalls (.fastq) and a reference file (.fasta). The outputs are
+a sorted BAM file containing the alignments made, as well as a JSON
+file that contains basic statistics which can easily be accessed
+programmatically to produce visualisations. In addition, a minimal
+report is pre-constructed using this data, in the form of an HTML file
+which you can open in the browser. This workflow, using the power of
+nextflow, should be able to scale horizontally across compute, e.g.
+making use of a cluster.
 
-CI scripts are included for building and testing. Example data 
-should be included in `test_data/` to demonstrate running of
-the container.
+## Roadmap
 
-## Workflow Developer Instructions
-
-1. Edit the Docker file
-
-   For simple cases the only thing to edit in the Dockerfile will be the dependency
-   installation step and copying the necessary workflow code.
-
-2. The Dockerfile expects an command-line program to be installed to
-
-       /home/epi2melabs/conda/bin/run_workflow
-
-   with a `--help` option. The example `run_workflow` script demonstrates a way
-   to run a `snakemake` workflow which conforms to the (horrible) `snakemake`
-   standard of maintaining workflow code alongside workflow outputs. The entrypoint
-   script should save its outputs to `/output/<output_label>` for consistency
-   across workflows.
-
-3. The CI file will need editing to show usage of the container image with
-   the sample data.
-
-4. The ***Quickstart*** section below should be edited to make sense for the
-   implemented workflow. This should amount to a copy/paste from the CI file.
-
+> The pipeline is functional, however the report generation feature
+> will be significantly improved in an upcoming update. In addition, 
+> more command lime options will be added in due course, in addition
+> to improved documentation.
 
 ## Quickstart
 
 ```bash
 # build the container
-CONTAINER_TAG=epi2melabs-<name>
+CONTAINER_TAG=mapping
 docker build -t ${CONTAINER_TAG} -f Dockerfile  .
 
 # run the pipeline with the test data
-docker run \
-    --user $(id -u):$(id -g) --group-add 100 \
-    -v $(pwd)/test_data/:/input/ -v $(pwd):/output/ \
-    ${CONTAINER_TAG}:latest \
-    run /home/epi2melabs/workflow.nf \
-    --fastq /input/test_data/fastq_data \
-    --reference /input/test_data/someref.fasta \
-    --output /output/output_directory/
+nextflow run workflow.nf \
+    -w mapping_docker/workspace 
+    -profile withdocker
+    --fastq test_data/fastq_data/
+    --reference test_data/reference.fasta
+    --threads 4 --out_dir mapping
 ```
 
-The output of the pipeline will be found in `./<my_analysis>` for the above
-example. More generically the output will be in `<host_path>/<output_label>`
-where `host_path` is the path corresponding to the `/output/` mount, and
-`output_label` is that given as the `--output_label` argument as above.
+The output of the pipeline will be found in `./mapping` for the above
+example.
 
 
 ## Useful links
 
-* Include useful links to e.g. the source workflow
+* [minimap2](https://github.com/lh3/minimap2)

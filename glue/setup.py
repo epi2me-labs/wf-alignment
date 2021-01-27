@@ -29,7 +29,8 @@ setup(
     entry_points={
         "console_scripts": [
             'gather_mapping_stats = mapping_stats.gather:run_main',
-            'visualise_mapping_stats = mapping_stats.visualise:run_main'
+            'combine_mapping_stats = mapping_stats.combine:run_main',
+            'visualise_mapping_stats = mapping_stats.visualise:run_main',
         ]
     }
 )
