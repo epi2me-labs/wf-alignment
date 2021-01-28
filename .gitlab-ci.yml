@@ -7,6 +7,9 @@ build-image:
     stage: build_and_run
     variables:
         TAG: "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+    before_script:
+        - apk add wget openjdk11 bash
+        - wget -qO- https://get.nextflow.io | bash
     script:
         - echo ${CI_BUILD_TOKEN} | docker login --username gitlab-ci-token --password-stdin ${CI_REGISTRY}
         - docker build --no-cache -t "${TAG}" -f Dockerfile .

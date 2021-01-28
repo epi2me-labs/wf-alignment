@@ -30,7 +30,7 @@ nextflow run workflow.nf \
     -w mapping_docker/workspace 
     -profile withdocker
     --fastq test_data/fastq_data/
-    --reference test_data/reference.fasta
+    --reference /absolute/path/to/reference.fasta
     --threads 4 --out_dir mapping
 ```
 
