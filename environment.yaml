@@ -1,0 +1,13 @@
+name: epi2melabs-wf-alignment
+channels:
+    - bioconda
+    - conda-forge
+    - defaults
+dependencies:
+    - python==3.8.*
+    - aplanat
+    - pysam
+    - mapula
+    - minimap2
+    - samtools
+    - scikit-learn
