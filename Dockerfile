@@ -1,73 +1,14 @@
-FROM ubuntu:20.04
-ENV DEBIAN_FRONTEND=noninteractive
-LABEL maintainer="Oxford Nanopore Technologies"
+ARG BASEIMAGE=ontresearch/base-workflow-image:v0.1.0
+FROM $BASEIMAGE
 
-ARG WF_USER="epi2melabs"
-ARG WF_UID="1000"
-ARG WF_GID="100"
-
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
-RUN \
-    apt-get update \
-    && apt-get install -yq --no-install-recommends \
-        wget ca-certificates sudo \ 
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-ENV CONDA_DIR=/home/$WF_USER/conda \
-    SHELL=/bin/bash \
-    WF_USER=$WF_USER \
-    WF_UID=$WF_UID \
-    WF_GID=$WF_GID
-ENV HOME=/home/$WF_USER \
-    PATH=$CONDA_DIR/bin:$PATH
-
-COPY fix-permissions /usr/local/bin/fix-permissions
-RUN chmod a+rx /usr/local/bin/fix-permissions
-
-RUN \
-    echo "auth requisite pam_deny.so" >> /etc/pam.d/su \
-    && sed -i.bak -e 's/^%admin/#%admin/' /etc/sudoers \
-    && sed -i.bak -e 's/^%sudo/#%sudo/' /etc/sudoers \
-    && useradd -m -s /bin/bash -N -u $WF_UID $WF_USER \
-    && chmod g+w /etc/passwd \
-    && fix-permissions $HOME
-
-USER $WF_UID
-WORKDIR $HOME
-RUN \
-    wget -qO- https://micromamba.snakepit.net/api/micromamba/linux-64/latest | tar -xvj bin/micromamba \
-    && ./bin/micromamba shell --help \
-    && ./bin/micromamba shell init -s bash -p $CONDA_DIR \
-    && source ~/.bashrc \
-    && chown $WF_USER:$WF_GID $CONDA_DIR \
-    && fix-permissions $CONDA_DIR \
-    && fix-permissions $HOME
-
-ENV MAMBA_EXE="$HOME/bin/micromamba"
-ENV MAMBA_ROOT_PREFIX="$HOME/conda"
-
+# Minimal install for example purposes
+COPY environment.yaml $HOME/environment.yaml 
 RUN \
     . $CONDA_DIR/etc/profile.d/mamba.sh \
-    && micromamba activate \ 
-    && micromamba install \
-            # List dependencies here, e.g.
-            python=3.8 \
-            samtools \
-            minimap2 \
-            pandas \
-            pysam \
-        -c conda-forge -c bioconda -q -y \
+    && micromamba activate \
+    && micromamba install --file $HOME/environment.yaml \
     && fix-permissions $CONDA_DIR \
     && fix-permissions $HOME
 
-# Add and install glue - temporary measure
-ARG cacheBreaker=0
-COPY --chown=$WF_UID glue $HOME/glue
-RUN \
-    cd glue \
-    && python setup.py install
-
 USER $WF_UID
 WORKDIR $HOME
-
