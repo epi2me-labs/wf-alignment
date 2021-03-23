@@ -125,7 +125,7 @@ process plotStats {
     script:
     def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
     """
-    aplanat mapula $merged_mapula_json $counts_arg
+    aplanat mapula -n wf-alignment-report $merged_mapula_json $counts_arg
     """
 }
 
