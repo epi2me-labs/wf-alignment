@@ -41,9 +41,9 @@ process combineReferences {
     label "wfalignment"
     cpus 1
     input:
-    file "reference_*_.fasta"
+        file "reference_*_.fasta"
     output:
-    file "combined.fasta"
+        file "combined.fasta"
     """
     cat reference_*_.fasta > "combined.fasta"
     """
@@ -54,13 +54,13 @@ process alignReads {
     label "wfalignment"
     cpus params.threads
     input:
-    file "reads_*.fastq"
-    file reference_files
-    file combined
-    file counts
+        file "reads_*.fastq"
+        file reference_files
+        file combined
+        file counts
     output:
-    path "sorted.aligned.bam", emit: sorted
-    path "mapula.json", emit: json
+        path "sorted.aligned.bam", emit: sorted
+        path "mapula.json", emit: json
     script:
     def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
     """
@@ -75,9 +75,9 @@ process mergeBAM {
     label "wfalignment"
     cpus params.threads
     input:
-    file "sorted.aligned._*_.bam"
+        file "sorted.aligned._*_.bam"
     output:
-    file "merged.sorted.aligned.bam"
+        file "merged.sorted.aligned.bam"
     """
     samtools merge -@ $task.cpus merged.sorted.aligned.bam sorted.aligned._*_.bam
     """
@@ -88,9 +88,9 @@ process indexBAM {
     label "wfalignment"
     cpus 1
     input:
-    file merged_BAM
+        file merged_BAM
     output:
-    file "merged.sorted.aligned.bam.bai"
+        file "merged.sorted.aligned.bam.bai"
     """
     samtools index $merged_BAM
     """
@@ -101,11 +101,11 @@ process gatherStats {
     label "wfalignment"
     cpus 1
     input:
-    file "mapula_*_.json"
-    file counts
+        file "mapula_*_.json"
+        file counts
     output:
-    path "merged.mapula.csv", emit: merged_mapula_csv
-    path "merged.mapula.json", emit: merged_mapula_json
+        path "merged.mapula.csv", emit: merged_mapula_csv
+        path "merged.mapula.json", emit: merged_mapula_json
     script:
     def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
     """
@@ -118,14 +118,14 @@ process plotStats {
     label "wfalignment"
     cpus 1
     input:
-    file merged_mapula_json
-    file counts
+        file merged_mapula_json
+        file counts
     output:
-    file "report.html"
+        file "wf-alignment-report.html"
     script:
     def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
     """
-    aplanat mapula $merged_mapula_json $counts_arg
+    aplanat mapula -n wf-alignment-report $merged_mapula_json $counts_arg
     """
 }
 
