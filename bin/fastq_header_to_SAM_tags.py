@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 """Re-write fastq headers to be SAM tag compatible."""
+import argparse
+import glob
 import os
 import re
 import sys
-import glob
-import argparse
+
 import pysam
 
 
 def errprint(*args, **kwargs):
-    """Prints to stderr."""
+    """Print to stderr."""
     sys.stderr.write(*args, **kwargs)
     sys.stderr.write('\n')
 
@@ -33,7 +34,7 @@ def parse_barcode(read_comment):
 
 
 def parse_runid(read_comment):
-    """Parses the runid from a fastq comment."""
+    """Parse the runid from a fastq comment."""
     if not read_comment:
         return "none"
 
