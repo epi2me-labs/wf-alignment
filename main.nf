@@ -10,9 +10,11 @@ Usage:
     nextflow run epi2melabs/wf-alignment [options]
 
 Script Options:
+    --prefix       STR     The prefix attached to each of the output filenames (required)
     --fastq        DIR     Path to directory containing FASTQ files (required)
     --references   DIR     Path to directory containing FASTA reference files (required)
     --counts       FILE    Path to a CSV file containing expected counts (optional)
+    --demultiplex  BOOL    Provide this flag to enable demultiplexing of the data (optional)
     --out_dir      DIR     Path for output (default: $params.out_dir)
     --threads      INT     Number of threads per process for alignment and sorting steps (4)
     --batch        INT     Determines how many fastq to split into each parallel job (100)
@@ -26,16 +28,37 @@ Notes:
 """
 }
 
+def displayParamError(msg) {
+    helpMessage()
+    println("")
+    println(msg)
+    exit 1
+}
+
+
 if (params.help) {
     helpMessage()
     exit 1
 }
-if (!params.fastq || !params.references) {
-    helpMessage()
-    println("")
-    println("Error: `--fastq` and `--references` are required")
-    exit 1
+if (!params.prefix) {
+    displayParamError("Error: a `--prefix` is required")
 }
+if (!params.fastq || !params.references) {
+    displayParamError("Error: `--fastq` and `--references` are required")
+}
+
+
+process demultiplexReads {
+    cpus params.threads
+    input:
+        file "reads_*.fastq"
+    output:
+        path "guppy_barcoder/{**,.}/*.fastq", glob: true
+    """
+    guppy_barcoder -t $task.cpus -i . --save_path guppy_barcoder
+    """
+}
+
 
 process combineReferences {
     label "wfalignment"
@@ -62,10 +85,11 @@ process alignReads {
         path "sorted.aligned.bam", emit: sorted
         path "mapula.json", emit: json
     script:
-    def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
+        def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
     """
-    minimap2 -y -t $task.cpus -ax map-ont $combined reads_*.fastq \
-    | mapula count $counts_arg -r $reference_files -s fasta -f json -p \
+    fastq_header_to_SAM_tags.py *.fastq \
+    | minimap2 -y -t $task.cpus -ax map-ont $combined - \
+    | mapula count $counts_arg -r $reference_files -s fasta barcode run_id -f json -p \
     | samtools sort -o sorted.aligned.bam -
     """
 }
@@ -107,7 +131,7 @@ process gatherStats {
         path "merged.mapula.csv", emit: merged_mapula_csv
         path "merged.mapula.json", emit: merged_mapula_json
     script:
-    def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
+        def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
     """
     mapula merge mapula_*_.json $counts_arg -f all -n merged.mapula
     """
@@ -121,11 +145,11 @@ process plotStats {
         file merged_mapula_json
         file counts
     output:
-        file "wf-alignment-report.html"
+        file "report.html"
     script:
-    def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
+        def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
     """
-    aplanat mapula -n wf-alignment-report $merged_mapula_json $counts_arg
+    aplanat mapula $merged_mapula_json $counts_arg
     """
 }
 
@@ -141,6 +165,10 @@ workflow pipeline {
         fastq_files = channel
             .fromPath("${fastq}{**,.}/*.fastq", glob: true)
             .buffer( size: params.batch, remainder: true )
+
+        // Demux if enabled
+        if ( params.demultiplex )
+            fastq_files = demultiplexReads(fastq_files)
 
         // Get reference fasta files from dir path
         references_files = channel
@@ -176,9 +204,12 @@ process output {
     input:
         file fname
     output:
-        file fname
+        file "${params.prefix}.${fname}"
+    script:
+        def prefixed = "${params.prefix}.${fname}"
     """
     echo "Writing output files"
+    mv $fname $prefixed
     """
 }
 
