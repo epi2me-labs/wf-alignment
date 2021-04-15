@@ -44,10 +44,7 @@ if (!params.prefix) {
     displayParamError("Error: a `--prefix` is required")
 }
 if (!params.fastq || !params.references) {
-    helpMessage()
-    println("")
-    println("Error: `--fastq` and `--references` are required")
-    exit 1
+    displayParamError("Error: `--fastq` and `--references` are required")
 }
 
 
