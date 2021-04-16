@@ -145,7 +145,7 @@ process plotStats {
         file merged_mapula_json
         file counts
     output:
-        file "report.html"
+        file "wf-alignment-report.html"
     script:
         def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
     """
