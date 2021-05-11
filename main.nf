@@ -18,6 +18,7 @@ Script Options:
     --out_dir      DIR     Path for output (default: $params.out_dir)
     --threads      INT     Number of threads per process for alignment and sorting steps (4)
     --batch        INT     Determines how many fastq to split into each parallel job (100)
+    --prefix       STR     The prefix attached to each of the output filenames (optional)
     --help
 
 Notes:
@@ -200,7 +201,8 @@ workflow pipeline {
 // decoupling the publish from the process steps.
 process output {
     // publish inputs to output directory
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "*"
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "*", saveAs: { 
+        f -> params.prefix ? "${params.prefix}.${f}" : "${f}" }
     input:
         file fname
     output:
