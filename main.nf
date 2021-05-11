@@ -206,12 +206,9 @@ process output {
     input:
         file fname
     output:
-        file "${params.prefix}.${fname}"
-    script:
-        def prefixed = "${params.prefix}.${fname}"
+        file fname
     """
     echo "Writing output files"
-    mv $fname $prefixed
     """
 }
 
