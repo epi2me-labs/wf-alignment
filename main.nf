@@ -10,7 +10,6 @@ Usage:
     nextflow run epi2melabs/wf-alignment [options]
 
 Script Options:
-    --prefix       STR     The prefix attached to each of the output filenames (required)
     --fastq        DIR     Path to directory containing FASTQ files (required)
     --references   DIR     Path to directory containing FASTA reference files (required)
     --counts       FILE    Path to a CSV file containing expected counts (optional)
@@ -40,9 +39,6 @@ def displayParamError(msg) {
 if (params.help) {
     helpMessage()
     exit 1
-}
-if (!params.prefix) {
-    displayParamError("Error: a `--prefix` is required")
 }
 if (!params.fastq || !params.references) {
     displayParamError("Error: `--fastq` and `--references` are required")
