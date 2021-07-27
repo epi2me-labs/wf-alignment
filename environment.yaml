@@ -8,6 +8,7 @@ dependencies:
     - aplanat >=0.5.0
     - pysam
     - mapula
+    - barcoder
     - minimap2
     - samtools
     - scikit-learn
