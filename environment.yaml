@@ -1,5 +1,6 @@
 name: epi2melabs-wf-alignment
 channels:
+    - epi2melabs
     - bioconda
     - conda-forge
     - defaults
