@@ -35,7 +35,7 @@ to see the options for the workflow.
 The primary outputs of the workflow include:
 
 * A sorted, indexed BAM file containing alignments.
-* A csv containing various mapping stats.
+* A CSV containing various mapping stats.
 * An HTML report with visualisations of the mapping stats.
 
 
