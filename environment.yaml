@@ -13,3 +13,4 @@ dependencies:
     - minimap2
     - samtools
     - scikit-learn
+    - fastcat
