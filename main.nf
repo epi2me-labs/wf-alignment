@@ -70,6 +70,20 @@ process combineReferences {
 }
 
 
+process fastcatUncompress {
+    label "wfalignment"
+    cpus params.threads
+    input:
+        file "reads/*"
+    output:
+        path "per-read.txt", emit: perRead
+        path "uncompressed.fastq", emit: fastq
+    """
+    fastcat -f file-summary.txt -r per-read.txt reads/* >> uncompressed.fastq
+    """
+}
+
+
 process alignReads {
     label "wfalignment"
     cpus params.threads
@@ -158,14 +172,18 @@ workflow pipeline {
         references
         counts
     main:
+    
         // Get fastq files from dir path
         fastq_files = channel
-            .fromPath("${fastq}{**,.}/*.fastq", glob: true)
+            .fromPath("${fastq}{**,.}/*.fastq*", glob: true)
             .buffer( size: params.batch, remainder: true )
 
         // Demux if enabled
         if ( params.demultiplex )
             fastq_files = demultiplexReads(fastq_files)
+        
+        //uncompress and combine fastq's if multiple files
+        uncompressed = fastcatUncompress(fastq_files)
 
         // Get reference fasta files from dir path
         references_files = channel
@@ -176,7 +194,7 @@ workflow pipeline {
 
         // Align the reads to produce bams and stats
         aligned = alignReads(
-            fastq_files, references_files.collect(), combined, counts)
+           fastq_files, references_files.collect(), combined, counts)
         merged = mergeBAM(aligned.sorted.collect())
         indexed = indexBAM(merged)
 
@@ -213,6 +231,8 @@ process output {
 workflow {
     // Acquire fastq directory
     fastq = file(params.fastq, type: "dir", checkIfExists: true)
+    
+    
     // Acquire reference files
     references = file(params.references, type: "dir", checkIfExists: true)
     counts = file(params.counts, checkIfExists: params.counts == 'NO_COUNTS' ? false : true)
