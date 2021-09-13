@@ -18,6 +18,7 @@ Script Options:
     --threads      INT     Number of threads per process for alignment and sorting steps (4)
     --batch        INT     Determines how many fastq to split into each parallel job (100)
     --prefix       STR     The prefix attached to each of the output filenames (optional)
+    --report_name  STR     Optional report suffix (default: $params.report_name)
     --help
 
 Notes:
@@ -156,11 +157,13 @@ process plotStats {
         file merged_mapula_json
         file counts
     output:
-        file "report.html"
+        file "*.html"
     script:
         def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
+        report_name = "wf-alignment-" + params.report_name
+
     """
-    aplanat mapula -n report $merged_mapula_json $counts_arg
+    aplanat mapula -n $report_name $merged_mapula_json $counts_arg
     """
 }
 
