@@ -1,5 +1,6 @@
 #!/usr/bin/env nextflow
 
+import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
 def helpMessage(){
@@ -12,11 +13,11 @@ Usage:
 Script Options:
     --fastq        DIR     Path to directory containing FASTQ files (required)
     --references   DIR     Path to directory containing FASTA reference files (required)
+    --samples      FILE    CSV file with columns named `barcode` and `sample_name`
     --counts       FILE    Path to a CSV file containing expected counts (optional)
     --demultiplex  BOOL    Provide this flag to enable demultiplexing of the data (optional)
     --out_dir      DIR     Path for output (default: $params.out_dir)
     --threads      INT     Number of threads per process for alignment and sorting steps (4)
-    --batch        INT     Determines how many fastq to split into each parallel job (100)
     --prefix       STR     The prefix attached to each of the output filenames (optional)
     --report_name  STR     Optional report suffix (default: $params.report_name)
     --help
@@ -28,6 +29,9 @@ Notes:
     the fasta files provided using --references.
 """
 }
+
+include { fastq_ingress } from './lib/fastqingress' 
+
 
 def displayParamError(msg) {
     helpMessage()
@@ -43,18 +47,6 @@ if (params.help) {
 }
 if (!params.fastq || !params.references) {
     displayParamError("Error: `--fastq` and `--references` are required")
-}
-
-
-process demultiplexReads {
-    cpus params.threads
-    input:
-        file "reads_*.fastq"
-    output:
-        path "guppy_barcoder/{**,.}/*.fastq", glob: true
-    """
-    guppy_barcoder -t $task.cpus -i . --save_path guppy_barcoder
-    """
 }
 
 
@@ -75,12 +67,13 @@ process fastcatUncompress {
     label "wfalignment"
     cpus params.threads
     input:
-        file "reads/*"
+        tuple file(directory), val(sample_name) 
     output:
-        path "per-read.txt", emit: perRead
-        path "uncompressed.fastq", emit: fastq
+        path "*.fastq", emit: fastq
+        env SAMPLE_NAME, emit: sample_name
     """
-    fastcat -f file-summary.txt -r per-read.txt reads/* >> uncompressed.fastq
+    fastcat -H -s ${sample_name} -r ${sample_name}.stats -x ${directory}  >> ${sample_name}.fastq
+    SAMPLE_NAME="${sample_name}"
     """
 }
 
@@ -89,46 +82,62 @@ process alignReads {
     label "wfalignment"
     cpus params.threads
     input:
-        file "reads_*.fastq"
+        file fastq
         file reference_files
         file combined
         file counts
     output:
-        path "sorted.aligned.bam", emit: sorted
-        path "mapula.json", emit: json
+        path "*.sorted.aligned.bam", emit: sorted
+        path "*.mapula.json", emit: json
+        path "*.unmapped.stats", emit: unmapped_stats 
     script:
         def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
+        def sampleName = fastq.simpleName
+
     """
-    fastq_header_to_SAM_tags.py *.fastq \
-    | minimap2 -y -t $task.cpus -ax map-ont $combined - \
-    | mapula count $counts_arg -r $reference_files -s fasta barcode run_id -f json -p \
-    | samtools sort -o sorted.aligned.bam -
+    minimap2 -y -t $task.cpus -ax map-ont $combined $fastq \
+    | mapula count $counts_arg -r $reference_files -s fasta run_id barcode -f json -p \
+    | samtools sort -@ $task.cpus -o ${sampleName}.sorted.aligned.bam - 
+    mv mapula.json ${sampleName}.mapula.json
+    bamtools split -in ${sampleName}.sorted.aligned.bam -mapped
+    (bedtools bamtofastq -i *UNMAPPED.bam -fq unmapped.fq && fastcat -s unmapped.fq -r ${sampleName}.unmapped.stats -x unmapped.fq >> uncompressed.fastq) \
+    || touch ${sampleName}.unmapped.stats
+    
     """
 }
 
-
+   
 process mergeBAM {
     label "wfalignment"
     cpus params.threads
     input:
-        file "sorted.aligned._*_.bam"
+        file sorted_aligned_bam
     output:
-        file "merged.sorted.aligned.bam"
+        file "*.merged.sorted.aligned.bam"
+    script:
+        def sampleName = sorted_aligned_bam.simpleName
     """
-    samtools merge -@ $task.cpus merged.sorted.aligned.bam sorted.aligned._*_.bam
+    samtools merge -@ $task.cpus ${sampleName}.merged.sorted.aligned.bam $sorted_aligned_bam
+    
     """
 }
 
 
-process indexBAM {
+
+
+process readDepth {
     label "wfalignment"
     cpus 1
     input:
         file merged_BAM
     output:
-        file "merged.sorted.aligned.bam.bai"
+        path "*.bed.gz"
+        file "*merged.sorted.aligned.bam.bai"
+    script:
+        def sampleName = merged_BAM.simpleName
     """
     samtools index $merged_BAM
+    mosdepth -n --fast-mode --by 5 ${sampleName}.merged $merged_BAM
     """
 }
 
@@ -137,33 +146,78 @@ process gatherStats {
     label "wfalignment"
     cpus 1
     input:
-        file "mapula_*_.json"
+        file mapula_json
         file counts
     output:
-        path "merged.mapula.csv", emit: merged_mapula_csv
-        path "merged.mapula.json", emit: merged_mapula_json
+        path "*merged.mapula.csv", emit: merged_mapula_csv
+        path "*merged.mapula.json", emit: merged_mapula_json
     script:
         def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
+        def sampleName = mapula_json.simpleName
     """
-    mapula merge mapula_*_.json $counts_arg -f all -n merged.mapula
+    mapula merge $mapula_json $counts_arg -f all -n ${sampleName}.merged.mapula
+    """
+}
+
+
+process getVersions {
+    label "wfalignment"
+    cpus 1
+    output:
+        path "versions.txt"
+    script:
+    """
+    minimap2 --version | sed 's/^/minimap2,/' >> versions.txt
+    samtools --version | head -n 1 | sed 's/ /,/' >> versions.txt
+    fastcat --version | sed 's/^/fastcat,/' >> versions.txt
+    mosdepth --version | sed 's/ /,/' >> versions.txt
+    aplanat --version | sed 's/ /,/' >> versions.txt
+    python -c "import pysam; print(pysam.__version__)" | sed 's/^/spoa,/'  >> versions.txt
+    """
+}
+
+
+process getParams {
+    label "wfalignment"
+    cpus 1
+    output:
+        path "params.json"
+    script:
+        def paramsJSON = new JsonBuilder(params).toPrettyString()
+    """
+    # Output nextflow params object to JSON
+    echo '$paramsJSON' > params.json
     """
 }
 
 
 process plotStats {
     label "wfalignment"
-    cpus 1
+    cpus params.threads
     input:
-        file merged_mapula_json
+        path "merged_mapula_json/*"
         file counts
+        file "bed_file/*"
+        file reference_files
+        path "unmapped_stats/*"
+        path "versions/*"
+        path "params.json"
+        file sample_names
+
     output:
-        file "*.html"
+        path "*.html", optional: true, emit: report
     script:
         def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
-        report_name = "wf-alignment-" + params.report_name
-
+        def report_name = "wf-alignment-" + params.report_name
     """
-    aplanat mapula -n $report_name $merged_mapula_json $counts_arg
+    report.py merged_mapula_json/* $counts_arg --report_name '$report_name' \
+    --bedfile bed_file/* \
+    --references $reference_files \
+    --unmapped_stats unmapped_stats/* \
+    --params params.json \
+    --versions versions \
+    --sample_names $sample_names
+
     """
 }
 
@@ -175,18 +229,9 @@ workflow pipeline {
         references
         counts
     main:
-    
-        // Get fastq files from dir path
-        fastq_files = channel
-            .fromPath("${fastq}{**,.}/*.fastq*", glob: true)
-            .buffer( size: params.batch, remainder: true )
-
-        // Demux if enabled
-        if ( params.demultiplex )
-            fastq_files = demultiplexReads(fastq_files)
         
-        //uncompress and combine fastq's if multiple files
-        uncompressed = fastcatUncompress(fastq_files)
+        //uncompress aplotnd combine fastq's if multiple files
+        uncompressed = fastcatUncompress(fastq)
 
         // Get reference fasta files from dir path
         references_files = channel
@@ -197,19 +242,27 @@ workflow pipeline {
 
         // Align the reads to produce bams and stats
         aligned = alignReads(
-           fastq_files, references_files.collect(), combined, counts)
-        merged = mergeBAM(aligned.sorted.collect())
-        indexed = indexBAM(merged)
+           uncompressed.fastq, references_files.collect(), combined, counts)
+        merged = mergeBAM(aligned.sorted)
+        depth = readDepth(merged)
+        workflow_params = getParams()
+        software_versions = getVersions()
+
 
         // Merge the stats together to get a csv out
-        stats = gatherStats(alignReads.out.json.collect(), counts)
-        report = plotStats(stats.merged_mapula_json, counts)
+        stats = gatherStats(alignReads.out.json, counts)
+        sample_names = uncompressed.sample_name.collectFile(name: 'sample_names.csv', newLine: true)
+
+        report = plotStats(stats.merged_mapula_json.collect(), counts,
+        depth[0].collect(), references_files.collect(),
+        aligned.unmapped_stats.collect(),  software_versions, workflow_params,
+        sample_names)
     emit:
         merged = merged
-        indexed = indexed
+        indexed = depth[1]
         merged_mapula_csv = stats.merged_mapula_csv
         merged_mapula_json = stats.merged_mapula_json
-        report = report
+        report = report.report
 }
 
 
@@ -233,9 +286,8 @@ process output {
 // entrypoint workflow
 workflow {
     // Acquire fastq directory
-    fastq = file(params.fastq, type: "dir", checkIfExists: true)
-    
-    
+    fastq = fastq_ingress(
+        params.fastq, params.out_dir, params.samples, params.sanitize_fastq)
     // Acquire reference files
     references = file(params.references, type: "dir", checkIfExists: true)
     counts = file(params.counts, checkIfExists: params.counts == 'NO_COUNTS' ? false : true)
