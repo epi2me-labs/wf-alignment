@@ -3,51 +3,7 @@
 import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
-def helpMessage(){
-    log.info """
-wf-alignment
-
-Usage:
-    nextflow run epi2melabs/wf-alignment [options]
-
-Script Options:
-    --fastq        DIR     Path to directory containing FASTQ files (required)
-    --references   DIR     Path to directory containing FASTA reference files (required)
-    --samples      FILE    CSV file with columns named `barcode` and `sample_name`
-    --counts       FILE    Path to a CSV file containing expected counts (optional)
-    --demultiplex  BOOL    Provide this flag to enable demultiplexing of the data (optional)
-    --out_dir      DIR     Path for output (default: $params.out_dir)
-    --threads      INT     Number of threads per process for alignment and sorting steps (4)
-    --prefix       STR     The prefix attached to each of the output filenames (optional)
-    --report_name  STR     Optional report suffix (default: $params.report_name)
-    --help
-
-Notes:
-    The expected counts CSV file must contain columns named 'reference' 
-    and 'expected_counts' in order to be valid. the 'reference' column
-    should contain names matching the names of reference sequences within
-    the fasta files provided using --references.
-"""
-}
-
 include { fastq_ingress } from './lib/fastqingress' 
-
-
-def displayParamError(msg) {
-    helpMessage()
-    println("")
-    println(msg)
-    exit 1
-}
-
-
-if (params.help) {
-    helpMessage()
-    exit 1
-}
-if (!params.fastq || !params.references) {
-    displayParamError("Error: `--fastq` and `--references` are required")
-}
 
 
 process combineReferences {
@@ -284,6 +240,7 @@ process output {
 
 
 // entrypoint workflow
+WorkflowMain.initialise(workflow, params, log)
 workflow {
     // Acquire fastq directory
     fastq = fastq_ingress(
