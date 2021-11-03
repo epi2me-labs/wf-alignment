@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Output Nextflow schema JSON file.
 ### Changed
 - Help message now uses schema
+- Updated fastqingress
 
 ## [v0.0.7]
 ### Fixed
