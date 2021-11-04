@@ -7,12 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v0.0.8]
 ### Added
 - Option to add suffix to HTML report name.
-- Analyse multiple barcodes
 - Unmapped QC statistics
 - Depth coverage graph per reference
-- Output Nextflow schema JSON file.
 ### Changed
-- Help message now uses schema
+- Help message now uses JSON schema
 - Updated fastqingress
 
 ## [v0.0.7]
