@@ -246,7 +246,7 @@ workflow {
     fastq = fastq_ingress(
         params.fastq, params.out_dir, params.samples, params.sanitize_fastq)
     // Acquire reference files
-    references = file(params.references, type: "dir", checkIfExists: true)
+    references = file(params.references, type: "dir")
     counts = file(params.counts, checkIfExists: params.counts == 'NO_COUNTS' ? false : true)
     // Run pipeline
     results = pipeline(fastq, references, counts)
