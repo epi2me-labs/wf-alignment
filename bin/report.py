@@ -34,24 +34,24 @@ class PlotMappingStats(HTMLSection):
         self,
         json: str,
         counts: typing.Union[str, None],
-        bedfile: str,
         references: str,
-        unmapped: str
+        unmapped: str,
+        sample_name: str,
     ) -> None:
         """Load the json file and output the dashboard."""
         super().__init__()
         self.json = json
         self.md = markdown.Markdown()
         self.counts = counts
-        self.bedfile = bedfile
         self.references = references
         self.unmapped = unmapped
+        self.sample_name = sample_name
         self.data = self.load_data(self.json)
         self.report = self.build_report(
             self.counts,
-            self.bedfile,
             self.references,
             self.unmapped,
+            self.sample_name,
             **self.data
         )
 
@@ -75,9 +75,9 @@ class PlotMappingStats(HTMLSection):
     def build_report(
         self,
         counts: pd.DataFrame,
-        bedfile,
         references,
         unmapped,
+        sample_name,
         **data
     ):
         """Build_report."""
@@ -103,7 +103,7 @@ class PlotMappingStats(HTMLSection):
         tabs.append(cov_tab)
 
         # Plot coverage
-        depth_tab = self.depth_graph(bedfile, references)
+        depth_tab = self.depth_graph(references, sample_name)
         tabs.append(depth_tab)
 
         # Plot control
@@ -117,23 +117,26 @@ class PlotMappingStats(HTMLSection):
         self.plot(panel)
         return(panel)
 
-    def depth_graph(self, bedFile, references, sep='\t'):
+    def depth_graph(self, references, sample_name, sep='\t'):
         """Create depth vs position graph."""
         graphs = []
-        binned_depth = pd.read_csv(
-                str(bedFile), sep=sep,
-                names=['ref', 'start', 'end', 'depth'])
         for fname in references:
-            observations = []
+            observations = {}
             name = os.path.splitext(fname)[0]
             with pysam.FastxFile(fname) as fh:
                 for entry in fh:
-                    observations.append(entry.name)
-            per_sample_df = binned_depth[binned_depth['ref'].isin(
-                                        observations)]
-            per_ref_dfs = per_sample_df.groupby(['ref'])
+                    file_name = os.path.join(
+                        'depth_beds', sample_name +
+                        '.' + entry.name + '.' + 'bed')
+                    if os.path.isfile(file_name):
+                        binned_depth = pd.read_csv(
+                            str(file_name), sep=sep,
+                            names=['ref', 'start', 'end', 'depth'])
+                        observations[entry.name] = binned_depth
+                    else:
+                        pass
             graph_dic = {}
-            for ref_name, per_ref_df in per_ref_dfs:
+            for ref_name, per_ref_df in observations.items():
                 graph_dic[ref_name] = {
                                'x': per_ref_df['start'],
                                'y': per_ref_df['depth']}
@@ -768,15 +771,11 @@ def gather_sample_files(sample_names):
         mapula_json = os.path.join(
                       'merged_mapula_json',
                       sample_name + '.merged.mapula.json')
-        bed_file = os.path.join(
-                   'bed_file', sample_name + '.merged.regions.bed.gz')
         unmapped_stats = os.path.join(
                         'unmapped_stats', sample_name + '.unmapped.stats')
         expected_files = {'Mapula file': mapula_json,
-                          'Bed file': bed_file,
                           'Unmapped file': unmapped_stats}
         final_files = {'Mapula file': mapula_json,
-                       'Bed file': bed_file,
                        'Unmapped file': unmapped_stats}
         for name, file in expected_files.items():
             if os.path.exists(file):
@@ -813,9 +812,6 @@ def main():
         dest="name",
         required=False,
         default="report")
-    parser.add_argument(
-        "--bedfile", nargs='+',
-        help="bed files for sequence depth")
     parser.add_argument(
         "--references", nargs='+',
         help="reference files")
@@ -856,9 +852,9 @@ def main():
         stats_panel = PlotMappingStats(
                 json=values['Mapula file'],
                 counts=args.counts,
-                bedfile=values['Bed file'],
                 references=args.references[::-1],
-                unmapped=unmapped)
+                unmapped=unmapped,
+                sample_name=name)
         report_doc.add_section().markdown('##' + name)
         report_doc.add_section(section=stats_panel)
     # Versions and params
