@@ -5,6 +5,10 @@ nextflow.enable.dsl = 2
 
 include { fastq_ingress } from './lib/fastqingress' 
 
+def nameIt(ch) {
+            return ch.map { it -> return tuple("$it".split(/\./)[5], it) }
+        }
+
 
 process combineReferences {
     label "wfalignment"
@@ -69,31 +73,83 @@ process mergeBAM {
     input:
         file sorted_aligned_bam
     output:
-        file "*.merged.sorted.aligned.bam"
+        path "*.merged.sorted.aligned.bam"
     script:
         def sampleName = sorted_aligned_bam.simpleName
     """
     samtools merge -@ $task.cpus ${sampleName}.merged.sorted.aligned.bam $sorted_aligned_bam
-    
     """
 }
 
 
-
-
-process readDepth {
+process indexBam {
     label "wfalignment"
     cpus 1
     input:
         file merged_BAM
     output:
-        path "*.bed.gz"
         file "*merged.sorted.aligned.bam.bai"
     script:
         def sampleName = merged_BAM.simpleName
     """
     samtools index $merged_BAM
-    mosdepth -n --fast-mode --by 5 ${sampleName}.merged $merged_BAM
+    """
+}
+
+
+process splitByReference {
+    label "wfalignment"
+    cpus params.threads
+    input:
+        file merged_bam
+    output:
+       path "*.sorted.aligned.*.bam", emit: per_ref_bam
+    script:
+        def sampleName = merged_bam.simpleName
+    """
+    samtools index $merged_bam
+    bamtools split -in $merged_bam -reference -refPrefix "$sampleName".
+    """
+}
+
+
+process refLengths {
+    label "wfalignment"
+    cpus params.threads
+    input:
+        path reference
+        each path(indexed_bam)
+    output:
+        path "lengths.csv"
+    """
+    seqkit fx2tab --length --name --only-id $reference > lengths.txt  
+    echo 'name,lengths' > lengths.csv
+    tr -s '[:blank:]' ',' <lengths.txt >> lengths.csv
+    """
+}
+
+
+process readDepthPerRef {
+    label "wfalignment"
+    cpus 1
+    input:
+        tuple val(ref_name), val(ref_len), file(ref_bam)
+    output:
+        path "*.bed"
+        
+    script:
+        def sampleName = "$ref_bam".split(/\./)[4]
+        int test = "$ref_len".toInteger()
+        def steps = Math.round(Math.floor(test/500))
+        if (steps == 0){
+            steps = 1;
+        }
+    
+    """
+    samtools index $ref_bam
+    mosdepth -n --fast-mode --by $steps ${sampleName}.${ref_name} $ref_bam
+    gunzip  ${sampleName}.${ref_name}.regions.bed.gz
+    grep '$ref_name' ${sampleName}.${ref_name}.regions.bed > ${sampleName}.${ref_name}.bed
     """
 }
 
@@ -142,7 +198,7 @@ process getParams {
         def paramsJSON = new JsonBuilder(params).toPrettyString()
     """
     # Output nextflow params object to JSON
-    echo '$paramsJSON' > params.json
+    echo '$paramsJSON' > params.json 
     """
 }
 
@@ -153,12 +209,12 @@ process plotStats {
     input:
         path "merged_mapula_json/*"
         file counts
-        file "bed_file/*"
         file reference_files
         path "unmapped_stats/*"
         path "versions/*"
         path "params.json"
         file sample_names
+        path "depth_beds/*"
 
     output:
         path "*.html", optional: true, emit: report
@@ -167,7 +223,6 @@ process plotStats {
         def report_name = "wf-alignment-" + params.report_name
     """
     report.py merged_mapula_json/* $counts_arg --report_name '$report_name' \
-    --bedfile bed_file/* \
     --references $reference_files \
     --unmapped_stats unmapped_stats/* \
     --params params.json \
@@ -198,9 +253,30 @@ workflow pipeline {
 
         // Align the reads to produce bams and stats
         aligned = alignReads(
-           uncompressed.fastq, references_files.collect(), combined, counts)
+           uncompressed.fastq, references_files.collect(), combined, counts)   
         merged = mergeBAM(aligned.sorted)
-        depth = readDepth(merged)
+        indexed_bam = indexBam(merged)
+
+        // Split bam by reference
+        split_by_ref = splitByReference(merged)
+
+        // Find reference lengths
+        ref_length = refLengths(combined, indexed_bam)
+
+        // Output tuples containing ref_id, length
+        length_ch = ref_length[0].splitCsv(header:true)
+                    .map{ row-> tuple(row.name, row.lengths) }
+
+        // Output tuples containing ref_id, bam_file
+        named_bams = nameIt(split_by_ref.per_ref_bam.flatten())
+
+        // Join tuples to make ref_id, length, bam_file
+        ref_len_bam = length_ch.join(named_bams)
+
+        // Find read_depth per reference/bam file
+        depth_per_ref = readDepthPerRef(ref_len_bam)
+
+        // get params & versions
         workflow_params = getParams()
         software_versions = getVersions()
 
@@ -210,12 +286,12 @@ workflow pipeline {
         sample_names = uncompressed.sample_name.collectFile(name: 'sample_names.csv', newLine: true)
 
         report = plotStats(stats.merged_mapula_json.collect(), counts,
-        depth[0].collect(), references_files.collect(),
+        references_files.collect(),
         aligned.unmapped_stats.collect(),  software_versions, workflow_params,
-        sample_names)
+        sample_names, depth_per_ref.collect())
     emit:
         merged = merged
-        indexed = depth[1]
+        indexed = indexed_bam
         merged_mapula_csv = stats.merged_mapula_csv
         merged_mapula_json = stats.merged_mapula_json
         report = report.report
