@@ -131,7 +131,7 @@ process refLengths {
 
 process readDepthPerRef {
     label "wfalignment"
-    cpus 1
+    cpus 4
     input:
         tuple val(ref_name), val(ref_len), file(ref_bam)
     output:
@@ -147,7 +147,7 @@ process readDepthPerRef {
     
     """
     samtools index $ref_bam
-    mosdepth -n --fast-mode --by $steps ${sampleName}.${ref_name} $ref_bam
+    mosdepth -n --fast-mode --by $steps -t $task.cpus ${sampleName}.${ref_name} $ref_bam
     gunzip  ${sampleName}.${ref_name}.regions.bed.gz
     grep '$ref_name' ${sampleName}.${ref_name}.regions.bed > ${sampleName}.${ref_name}.bed
     """
