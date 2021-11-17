@@ -6,7 +6,7 @@ channels:
     - defaults
 dependencies:
     - python==3.8.*
-    - aplanat
+    - aplanat==0.5.4
     - pysam
     - mapula
     - barcoder
