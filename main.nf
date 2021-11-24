@@ -241,19 +241,15 @@ workflow pipeline {
         counts
     main:
         
-        //uncompress aplotnd combine fastq's if multiple files
+        //uncompress and combine fastq's if multiple files
         uncompressed = fastcatUncompress(fastq)
 
-        // Get reference fasta files from dir path
-        references_files = channel
-            .fromPath("${references}/*", glob: true)
-
         // Cat the references together for alignment
-        combined = combineReferences(references_files.collect())
+        combined = combineReferences(references.collect())
 
         // Align the reads to produce bams and stats
         aligned = alignReads(
-           uncompressed.fastq, references_files.collect(), combined, counts)   
+           uncompressed.fastq, references.collect(), combined, counts)   
         merged = mergeBAM(aligned.sorted)
         indexed_bam = indexBam(merged)
 
@@ -286,7 +282,7 @@ workflow pipeline {
         sample_names = uncompressed.sample_name.collectFile(name: 'sample_names.csv', newLine: true)
 
         report = plotStats(stats.merged_mapula_json.collect(), counts,
-        references_files.collect(),
+        references.collect(),
         aligned.unmapped_stats.collect(),  software_versions, workflow_params,
         sample_names, depth_per_ref.collect())
     emit:
@@ -322,10 +318,18 @@ workflow {
     fastq = fastq_ingress(
         params.fastq, params.out_dir, params.samples, params.sanitize_fastq)
     // Acquire reference files
-    references = file(params.references, type: "dir")
+    references = file(params.references, type: "dir", checkIfExists:true)
+    if (references.listFiles().length == 0) {
+            println('Error: No references found in the directory provided.')
+            exit 1 
+    }       
+    else {
+        reference_files = channel
+            .fromPath("${references}/*", glob: true)
+    }
     counts = file(params.counts, checkIfExists: params.counts == 'NO_COUNTS' ? false : true)
     // Run pipeline
-    results = pipeline(fastq, references, counts)
+    results = pipeline(fastq, reference_files, counts)
     output(results.merged.concat( 
         results.indexed, results.merged_mapula_csv, 
         results.merged_mapula_json, results.report ))
