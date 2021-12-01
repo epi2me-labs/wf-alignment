@@ -18,3 +18,4 @@ dependencies:
     - bamtools
     - bedtools
     - seqkit
+    - epi2melabs

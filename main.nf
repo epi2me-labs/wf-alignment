@@ -4,6 +4,9 @@ import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
 include { fastq_ingress } from './lib/fastqingress' 
+include { start_ping; end_ping } from './lib/ping'
+
+
 
 def nameIt(ch) {
             return ch.map { it -> return tuple("$it".split(/\./)[5], it) }
@@ -27,13 +30,13 @@ process fastcatUncompress {
     label "wfalignment"
     cpus params.threads
     input:
-        tuple file(directory), val(sample_name) 
+        tuple path(directory), val(sample_id), val(type)
     output:
         path "*.fastq", emit: fastq
-        env SAMPLE_NAME, emit: sample_name
+        env SAMPLE_ID, emit: sample_id
     """
-    fastcat -H -s ${sample_name} -r ${sample_name}.stats -x ${directory}  >> ${sample_name}.fastq
-    SAMPLE_NAME="${sample_name}"
+    fastcat -H -s ${sample_id} -r ${sample_id}.stats -x ${directory}  >> ${sample_id}.fastq
+    SAMPLE_ID="${sample_id}"
     """
 }
 
@@ -213,7 +216,7 @@ process plotStats {
         path "unmapped_stats/*"
         path "versions/*"
         path "params.json"
-        file sample_names
+        file sample_ids
         path "depth_beds/*"
 
     output:
@@ -227,7 +230,7 @@ process plotStats {
     --unmapped_stats unmapped_stats/* \
     --params params.json \
     --versions versions \
-    --sample_names $sample_names
+    --sample_names $sample_ids
 
     """
 }
@@ -279,18 +282,19 @@ workflow pipeline {
 
         // Merge the stats together to get a csv out
         stats = gatherStats(alignReads.out.json, counts)
-        sample_names = uncompressed.sample_name.collectFile(name: 'sample_names.csv', newLine: true)
+        sample_ids = uncompressed.sample_id.collectFile(name: 'sample_ids.csv', newLine: true)
 
         report = plotStats(stats.merged_mapula_json.collect(), counts,
         references.collect(),
         aligned.unmapped_stats.collect(),  software_versions, workflow_params,
-        sample_names, depth_per_ref.collect())
+        sample_ids, depth_per_ref.collect())
     emit:
         merged = merged
         indexed = indexed_bam
         merged_mapula_csv = stats.merged_mapula_csv
         merged_mapula_json = stats.merged_mapula_json
         report = report.report
+        telemetry = workflow_params
 }
 
 
@@ -314,9 +318,11 @@ process output {
 // entrypoint workflow
 WorkflowMain.initialise(workflow, params, log)
 workflow {
+    // Start ping
+    start_ping()
     // Acquire fastq directory
     fastq = fastq_ingress(
-        params.fastq, params.out_dir, params.samples, params.sanitize_fastq)
+        params.fastq, params.out_dir, params.sample, params.sample_sheet, params.sanitize_fastq)
     // Acquire reference files
     references = file(params.references, type: "dir", checkIfExists:true)
     if (references.listFiles().length == 0) {
@@ -333,4 +339,7 @@ workflow {
     output(results.merged.concat( 
         results.indexed, results.merged_mapula_csv, 
         results.merged_mapula_json, results.report ))
+    // End ping
+    end_ping(pipeline.out.telemetry)
 }
+
