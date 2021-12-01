@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Added
 - Error message if no references in directory provided.
+- Singularity profile.
+- Ping telemetry file.
 ### Fixed
 - Calculate depth coverage graph steps based on length of reference.
+### Changed
+- Sample name to sample id
 
 ## [v0.0.8]
 ### Added

@@ -16,9 +16,13 @@
                     "default": "output",
                     "description": "Path for output"
                 },
-                "samples": {
+                "sample": {
                     "type": "string",
-                    "description": "CSV file with columns named `barcode` and `sample_name` (or simply a sample name for non-multiplexed data)."
+                    "description": "A sample name for non-multiplexed data. Permissible if passing a file or directory of .fastq(.gz)."
+                },
+                "sample_sheet": {
+                    "type": "string",
+                    "description": "CSV file with columns named `barcode`, `sample_name` and `type`. Permissible if passing a directory containing barcodeXX sub-directories."
                 },
                 "fastq": {
                     "type": "string",
@@ -87,7 +91,13 @@
                 "prefix": {
                     "type": "string",
                     "description": "The prefix attached to each of the output filenames"
+                },
+                "disable_ping": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable to prevent sending a workflow ping."
                 }
+
             }
         },
         "generic_options": {
