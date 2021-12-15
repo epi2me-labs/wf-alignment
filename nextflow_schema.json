@@ -56,6 +56,7 @@
             "properties": {
                 "references": {
                     "type": "string",
+                    "format": "directory-path",
                     "description": "Path to directory containing FASTA reference files"
                 }
             },
