@@ -9,7 +9,7 @@ include { start_ping; end_ping } from './lib/ping'
 
 
 def nameIt(ch) {
-            return ch.map { it -> return tuple("$it".split(/\./)[5], it) }
+            return ch.map { it -> return tuple("$it".split(/\./)[-2], it) }
         }
 
 
@@ -32,11 +32,14 @@ process fastcatUncompress {
     input:
         tuple path(directory), val(sample_id), val(type)
     output:
-        path "*.fastq", emit: fastq
+        path "*.fastq.gz", emit: fastq
         env SAMPLE_ID, emit: sample_id
     """
-    fastcat -H -s ${sample_id} -r ${sample_id}.stats -x ${directory}  >> ${sample_id}.fastq
+    fastcat -H -s ${sample_id} -r temp.stats -x ${directory} > temp.fastq 
+    fastq_header_to_SAM_tags.py temp.fastq -o ${sample_id}.reads.fastq
+    gzip ${sample_id}.reads.fastq
     SAMPLE_ID="${sample_id}"
+    rm -rf *temp*
     """
 }
 
@@ -63,9 +66,11 @@ process alignReads {
     | samtools sort -@ $task.cpus -o ${sampleName}.sorted.aligned.bam - 
     mv mapula.json ${sampleName}.mapula.json
     bamtools split -in ${sampleName}.sorted.aligned.bam -mapped
-    (bedtools bamtofastq -i *UNMAPPED.bam -fq unmapped.fq && fastcat -s unmapped.fq -r ${sampleName}.unmapped.stats -x unmapped.fq >> uncompressed.fastq) \
+    (bedtools bamtofastq -i *UNMAPPED.bam -fq temp.unmapped.fq \
+    && fastcat -s temp.unmapped.fq -r ${sampleName}.unmapped.stats -x temp.unmapped.fq >> temp.uncompressed.fastq) \
     || touch ${sampleName}.unmapped.stats
-    
+    rm -rf *temp*
+    rm -rf *UNMAPPED*
     """
 }
 
@@ -133,26 +138,26 @@ process refLengths {
 
 
 process readDepthPerRef {
+    depth_threads = {params.threads >= 4  ? 4 : 1}
     label "wfalignment"
-    cpus 4
+    cpus depth_threads
     input:
         tuple val(ref_name), val(ref_len), file(ref_bam)
     output:
         path "*.bed"
-        
     script:
         def sampleName = "$ref_bam".split(/\./)[4]
         int test = "$ref_len".toInteger()
-        def steps = Math.round(Math.floor(test/500))
+        def steps = Math.round(Math.floor(test/200))
         if (steps == 0){
             steps = 1;
         }
     
     """
     samtools index $ref_bam
-    mosdepth -n --fast-mode --by $steps -t $task.cpus ${sampleName}.${ref_name} $ref_bam
-    gunzip  ${sampleName}.${ref_name}.regions.bed.gz
-    grep '$ref_name' ${sampleName}.${ref_name}.regions.bed > ${sampleName}.${ref_name}.bed
+    mosdepth -n --fast-mode --by $steps -t $task.cpus ${sampleName}.${ref_name}.temp $ref_bam
+    zgrep '$ref_name' ${sampleName}.${ref_name}.temp.regions.bed.gz > ${sampleName}.${ref_name}.bed
+    rm -rf *temp*
     """
 }
 
@@ -231,7 +236,6 @@ process plotStats {
     --params params.json \
     --versions versions \
     --sample_names $sample_ids
-
     """
 }
 
@@ -265,10 +269,8 @@ workflow pipeline {
         // Output tuples containing ref_id, length
         length_ch = ref_length[0].splitCsv(header:true)
                     .map{ row-> tuple(row.name, row.lengths) }
-
         // Output tuples containing ref_id, bam_file
         named_bams = nameIt(split_by_ref.per_ref_bam.flatten())
-
         // Join tuples to make ref_id, length, bam_file
         ref_len_bam = length_ch.join(named_bams)
 
@@ -324,14 +326,19 @@ workflow {
     fastq = fastq_ingress(
         params.fastq, params.out_dir, params.sample, params.sample_sheet, params.sanitize_fastq)
     // Acquire reference files
-    references = file(params.references, type: "dir", checkIfExists:true)
-    if (references.listFiles().length == 0) {
+    references = file(params.references, type: "dir", checkIfExists:true);
+    reference_files = []
+    extensions = ["fasta", "fna", "ffn", "faa", "frn", "fa", "txt", "fa.gz", "fna.gz", "frn.gz", "ffn.gz", "fasta.gz"]
+    for (ext in extensions) {
+        reference_files += file(references.resolve("*.${ext}"), type: 'file', maxdepth: 1)
+    }
+    if (reference_files.size() == 0) {
             println('Error: No references found in the directory provided.')
             exit 1 
     }       
     else {
         reference_files = channel
-            .fromPath("${references}/*", glob: true)
+            .fromPath(reference_files)
     }
     counts = file(params.counts, checkIfExists: params.counts == 'NO_COUNTS' ? false : true)
     // Run pipeline
@@ -342,4 +349,6 @@ workflow {
     // End ping
     end_ping(pipeline.out.telemetry)
 }
+
+
 

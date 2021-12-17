@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+### Fixed.
+- run_id in mapula output json.
+- Only accept certain format files as references
+- reduce storage required for workspace
+
 ## [v0.0.9]
 ### Added
 - Error message if no references in directory provided.
