@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Fixed.
 - run_id in mapula output json.
-- Only accept certain format files as references
-- reduce storage required for workspace
+- Only accept certain format files as references.
+- reduce storage required for workspace.
+### Added.
+- Handling for no alignments.
 
 ## [v0.0.9]
 ### Added
