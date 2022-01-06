@@ -19,3 +19,4 @@ dependencies:
     - bedtools
     - seqkit
     - epi2melabs
+    - gzip

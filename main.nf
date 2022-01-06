@@ -158,6 +158,7 @@ process readDepthPerRef {
     mosdepth -n --fast-mode --by $steps -t $task.cpus ${sampleName}.${ref_name}.temp $ref_bam
     zgrep '$ref_name' ${sampleName}.${ref_name}.temp.regions.bed.gz > ${sampleName}.${ref_name}.bed
     rm -rf *temp*
+    rm -rf *bam*
     """
 }
 
@@ -335,7 +336,7 @@ workflow {
     if (reference_files.size() == 0) {
             println('Error: No references found in the directory provided.')
             exit 1 
-    }       
+    }
     else {
         reference_files = channel
             .fromPath(reference_files)

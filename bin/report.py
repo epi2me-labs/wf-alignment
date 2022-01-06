@@ -135,40 +135,44 @@ class PlotMappingStats(HTMLSection):
                         observations[entry.name] = binned_depth
                     else:
                         pass
-            graph_dic = {}
-            for ref_name, per_ref_df in observations.items():
-                graph_dic[ref_name] = {
-                               'x': per_ref_df['start'],
-                               'y': per_ref_df['depth']}
-            drop_down = list(graph_dic.keys())
-            first_plot = graph_dic[drop_down[0]]
-            plot = figure()
-            source = ColumnDataSource(data=first_plot)
-            select = Select(
-                title="Select reference for " + name + ':',
-                value=drop_down[0], options=drop_down)
-            plot = figure(plot_height=350, y_range=None, x_range=None,
-                          x_axis_label='Position along reference',
-                          y_axis_label='Sequencing depth / Bases',
-                          title=str(name))
-            plot.step(x='x', y='y', source=source)
-            plot.xaxis.formatter.use_scientific = False
-            select.js_on_change('value', CustomJS(
-                args=dict(
-                        source=source,
-                        source_graph=graph_dic,
-                        select=select), code="""
-                        const new_data = Object.assign({}, source.data)
-                        source.data = source_graph[select.value]
-                        """))
-            drop_down_plot = layout([select, plot])
-            graphs.append(drop_down_plot)
+            if len(observations) > 0:
+                graph_dic = {}
+                for ref_name, per_ref_df in observations.items():
+                    graph_dic[ref_name] = {
+                                'x': per_ref_df['start'],
+                                'y': per_ref_df['depth']}
+                drop_down = list(graph_dic.keys())
+                first_plot = graph_dic[drop_down[0]]
+                plot = figure()
+                source = ColumnDataSource(data=first_plot)
+                select = Select(
+                    title="Select reference for " + name + ':',
+                    value=drop_down[0], options=drop_down)
+                plot = figure(plot_height=350, y_range=None, x_range=None,
+                              x_axis_label='Position along reference',
+                              y_axis_label='Sequencing depth / Bases',
+                              title=str(name))
+                plot.step(x='x', y='y', source=source)
+                plot.xaxis.formatter.use_scientific = False
+                select.js_on_change('value', CustomJS(
+                    args=dict(
+                            source=source,
+                            source_graph=graph_dic,
+                            select=select), code="""
+                            const new_data = Object.assign({}, source.data)
+                            source.data = source_graph[select.value]
+                            """))
+                drop_down_plot = layout([select, plot])
+                graphs.append(drop_down_plot)
         alignment_grid = gridplot(
             graphs, ncols=2,
             sizing_mode="stretch_width")
         text = (
             "This tab contains visualisations of "
             "the depth of coverage of alignments across the reference."
+            " If there are no Depth graphs for"
+            " a particular reference"
+            " it is likely to mean no alignments were found."
         )
         plots = [
             [self.get_description(text)],
@@ -840,15 +844,27 @@ def main():
         revision=args.revision,
         commit=args.commit)
     section = report_doc.add_section()
-    section.markdown('### Alignment statistics')
     section.markdown("Results generated through the wf-alignment "
                      "nextflow workflow provided by Oxford Nanopore "
                      "Technologies")
+    section.markdown('### Alignment statistics')
     section.markdown("Statistics are provided for each barcode "
                      "or sample name if a sample sheet was provided.")
+    section.markdown(
+        "Alignment was done using the following reference files:")
+    for ref in args.references[::-1]:
+        section.markdown('- ' + str(ref))
     sample_files = gather_sample_files(args.sample_names[0])
     for name, values in sample_files.items():
-        unmapped = pd.read_csv(values['Unmapped file'], sep='\t')
+        if os.stat(values['Unmapped file']).st_size == 0:
+            unmapped = pd.DataFrame(data=None, index=None, columns=[
+                                    'read_id', 'filename',
+                                    'sample_name', 'read_length',
+                                    'mean_quality', 'channel',
+                                    'read_number', 'start_time'],
+                                    dtype=None, copy=None)
+        else:
+            unmapped = pd.read_csv(values['Unmapped file'], sep='\t')
         stats_panel = PlotMappingStats(
                 json=values['Mapula file'],
                 counts=args.counts,
