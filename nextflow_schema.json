@@ -1,8 +1,9 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema",
     "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
-    "title": ". pipeline parameters",
-    "description": "",
+    "title": "epi2me-labs/wf-alignment",
+    "description": "Provides an easy way to align Oxford Nanopore reads and gather mapping stats.",
+    "url": "https://github.com/epi2me-labs/wf-alignment",
     "type": "object",
     "definitions": {
         "input_output_options": {
@@ -22,11 +23,14 @@
                 },
                 "sample_sheet": {
                     "type": "string",
+                    "format": "file-path",
                     "description": "CSV file with columns named `barcode`, `sample_name` and `type`. Permissible if passing a directory containing barcodeXX sub-directories."
                 },
                 "fastq": {
                     "type": "string",
-                    "description": "Path to directory containing FASTQ files"
+                    "format": "path",
+                    "description": "A fastq file or directory containing fastq input files or directories of input files.",
+                    "help_text": "If directories named \\\"barcode*\\\" are found under the `--fastq` directory the data is assumed to be multiplex and each barcode directory will be processed independently. If `.fastq(.gz)` files are found under the `--fastq` directory the sample is assumed to not be multiplexed. In this second case `--samples` should be a simple name rather than a CSV file."
                 },
                 "counts": {
                     "type": "string",
@@ -52,6 +56,7 @@
             "properties": {
                 "references": {
                     "type": "string",
+                    "format": "directory-path",
                     "description": "Path to directory containing FASTA reference files"
                 }
             },
