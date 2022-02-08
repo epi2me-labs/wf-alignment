@@ -3,4 +3,4 @@ include:
       file: "wf-containers.yaml"
 
 variables:
-    NF_WORKFLOW_OPTS: "--prefix wf-alignment --fastq test_data/fastq --references test_data/references --counts test_data/counts/ERCC_mix1.csv --threads 2"
+    NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references --counts test_data/counts/ERCC_mix1.csv --threads 2"
