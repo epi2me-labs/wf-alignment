@@ -193,7 +193,7 @@ process getVersions {
     fastcat --version | sed 's/^/fastcat,/' >> versions.txt
     mosdepth --version | sed 's/ /,/' >> versions.txt
     aplanat --version | sed 's/ /,/' >> versions.txt
-    python -c "import pysam; print(pysam.__version__)" | sed 's/^/spoa,/'  >> versions.txt
+    python -c "import pysam; print(pysam.__version__)" | sed 's/^/pysam,/'  >> versions.txt
     """
 }
 
