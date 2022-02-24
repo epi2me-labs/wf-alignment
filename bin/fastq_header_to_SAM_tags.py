@@ -49,7 +49,7 @@ def parse_runid(read_comment):
     return "none"
 
 
-def rewrite_fastq_header(path, out_file):
+def rewrite_fastq_header(path, out_file, barcode):
     """Rewrite header for each read in a fastq file."""
     with pysam.FastxFile(path) as fastq_file:
 
@@ -59,7 +59,6 @@ def rewrite_fastq_header(path, out_file):
             # Pass the barcoding info from the read comment
             comment = ""
             if entry.comment:
-                barcode = parse_barcode(entry.comment)
                 runid = parse_runid(entry.comment)
 
                 if barcode:
@@ -92,12 +91,12 @@ def get_file_names(path, endswith=".fastq"):
     errprint("Could not find {}".format(path))
 
 
-def find_and_rewrite_fastq_headers(fastq_paths, out_file):
+def find_and_rewrite_fastq_headers(fastq_paths, out_file, barcode):
     """Discover fastq files and rewrites their headers."""
     with open(out_file, mode='w') as open_out_file:
         for path in fastq_paths:
             for filename in get_file_names(path):
-                rewrite_fastq_header(filename, open_out_file)
+                rewrite_fastq_header(filename, open_out_file, barcode)
 
 
 def parse_args(argv):
@@ -124,7 +123,16 @@ def parse_args(argv):
         default=['/dev/stdin']
     )
 
+    parser.add_argument(
+        "-barcode",
+        dest="barcode",
+        type=str,
+        default="unclassified",
+        help="barcode"
+    )
+
     args = parser.parse_args(argv)
+    print(args)
 
     return args
 
@@ -132,7 +140,7 @@ def parse_args(argv):
 def main(argv=sys.argv[1:]):
     """Run main function."""
     args = parse_args(argv)
-    find_and_rewrite_fastq_headers(args.FASTQ, args.OUT_FILE)
+    find_and_rewrite_fastq_headers(args.FASTQ, args.OUT_FILE, args.barcode)
 
 
 if __name__ == '__main__':

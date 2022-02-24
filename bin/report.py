@@ -23,7 +23,6 @@ from bokeh.transform import cumsum
 import markdown
 import numpy as np
 import pandas as pd
-import pysam
 from sklearn.linear_model import LinearRegression
 
 
@@ -37,6 +36,7 @@ class PlotMappingStats(HTMLSection):
         references: str,
         unmapped: str,
         sample_name: str,
+        depth_file: str,
     ) -> None:
         """Load the json file and output the dashboard."""
         super().__init__()
@@ -46,12 +46,14 @@ class PlotMappingStats(HTMLSection):
         self.references = references
         self.unmapped = unmapped
         self.sample_name = sample_name
+        self.depth_file = depth_file
         self.data = self.load_data(self.json)
         self.report = self.build_report(
             self.counts,
             self.references,
             self.unmapped,
             self.sample_name,
+            self.depth_file,
             **self.data
         )
 
@@ -78,6 +80,7 @@ class PlotMappingStats(HTMLSection):
         references,
         unmapped,
         sample_name,
+        depth_file,
         **data
     ):
         """Build_report."""
@@ -103,7 +106,7 @@ class PlotMappingStats(HTMLSection):
         tabs.append(cov_tab)
 
         # Plot coverage
-        depth_tab = self.depth_graph(references, sample_name)
+        depth_tab = self.depth_graph(references, depth_file)
         tabs.append(depth_tab)
 
         # Plot control
@@ -117,30 +120,23 @@ class PlotMappingStats(HTMLSection):
         self.plot(panel)
         return(panel)
 
-    def depth_graph(self, references, sample_name, sep='\t'):
+    def depth_graph(self, references, depth_file):
         """Create depth vs position graph."""
+        # create list of graphs
         graphs = []
-        for fname in references:
-            observations = {}
-            name = os.path.splitext(fname)[0]
-            with pysam.FastxFile(fname) as fh:
-                for entry in fh:
-                    file_name = os.path.join(
-                        'depth_beds', sample_name +
-                        '.' + entry.name + '.' + 'bed')
-                    if os.path.isfile(file_name):
-                        binned_depth = pd.read_csv(
-                            str(file_name), sep=sep,
-                            names=['ref', 'start', 'end', 'depth'])
-                        observations[entry.name] = binned_depth
-                    else:
-                        pass
-            if len(observations) > 0:
-                graph_dic = {}
-                for ref_name, per_ref_df in observations.items():
-                    graph_dic[ref_name] = {
-                                'x': per_ref_df['start'],
-                                'y': per_ref_df['depth']}
+        # create dictionary of {ref: depths}
+        depth_file.columns = ['ref', 'start', 'end', 'depth']
+        all_ref = dict(tuple(depth_file.groupby(['ref'])))
+        ref_keys = list(all_ref.keys())
+        for name, isoforms in references.items():
+            refs_present = list(set(isoforms).intersection(ref_keys))
+            graph_dic = {}
+            for entry in refs_present:
+                v = all_ref[entry]
+                graph_dic[entry] = {
+                    'x': v['start'],
+                    'y': v['depth']}
+            if len(graph_dic) > 0:
                 drop_down = list(graph_dic.keys())
                 first_plot = graph_dic[drop_down[0]]
                 plot = figure()
@@ -766,6 +762,17 @@ class PlotMappingStats(HTMLSection):
             )
 
 
+def get_references(references):
+    """Grab multiple  name references out of reference files."""
+    reference_sets = {}
+    for fname in references:
+        name = os.path.splitext(fname)[0]
+        with open(fname) as f:
+            ref_iso = [line.rstrip('\n') for line in f]
+        reference_sets[name] = ref_iso
+    return reference_sets
+
+
 def gather_sample_files(sample_names):
     """Check files exist for the report."""
     sample_names = pd.read_csv(sample_names, header=None).iloc[:, 0].tolist()
@@ -777,10 +784,14 @@ def gather_sample_files(sample_names):
                       sample_name + '.merged.mapula.json')
         unmapped_stats = os.path.join(
                         'unmapped_stats', sample_name + '.unmapped.stats')
+        depth_beds = os.path.join(
+                        'depth_beds', sample_name + '.all_regions.bed.gz')
         expected_files = {'Mapula file': mapula_json,
-                          'Unmapped file': unmapped_stats}
+                          'Unmapped file': unmapped_stats,
+                          'depth beds': depth_beds}
         final_files = {'Mapula file': mapula_json,
-                       'Unmapped file': unmapped_stats}
+                       'Unmapped file': unmapped_stats,
+                       'depth beds': depth_beds}
         for name, file in expected_files.items():
             if os.path.exists(file):
                 pass
@@ -852,6 +863,7 @@ def main():
                      "or sample name if a sample sheet was provided.")
     section.markdown(
         "Alignment was done using the following reference files:")
+    all_references = get_references(args.references)
     for ref in args.references[::-1]:
         section.markdown('- ' + str(ref))
     sample_files = gather_sample_files(args.sample_names[0])
@@ -865,12 +877,18 @@ def main():
                                     dtype=None, copy=None)
         else:
             unmapped = pd.read_csv(values['Unmapped file'], sep='\t')
+        if 'depth beds' in values.keys():
+            depth_sample = pd.read_csv(values['depth beds'],
+                                       sep='\t', header=None)
+        else:
+            depth_sample = pd.DataFrame()
         stats_panel = PlotMappingStats(
                 json=values['Mapula file'],
                 counts=args.counts,
-                references=args.references[::-1],
+                references=all_references,
                 unmapped=unmapped,
-                sample_name=name)
+                sample_name=name,
+                depth_file=depth_sample)
         report_doc.add_section().markdown('##' + name)
         report_doc.add_section(section=stats_panel)
     # Versions and params
