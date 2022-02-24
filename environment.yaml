@@ -14,7 +14,7 @@ dependencies:
     - samtools==1.3.1
     - scikit-learn
     - fastcat==0.4.10
-    - mosdepth==0.3.1
+    - mosdepth
     - bamtools
     - bedtools
     - seqkit

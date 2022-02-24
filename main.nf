@@ -326,21 +326,32 @@ workflow {
     // Acquire fastq directory
     fastq = fastq_ingress(
         params.fastq, params.out_dir, params.sample, params.sample_sheet, params.sanitize_fastq)
-    // Acquire reference files
-    references = file(params.references, type: "dir", checkIfExists:true);
-    reference_files = []
     extensions = ["fasta", "fna", "ffn", "faa", "frn", "fa", "txt", "fa.gz", "fna.gz", "frn.gz", "ffn.gz", "fasta.gz"]
-    for (ext in extensions) {
-        reference_files += file(references.resolve("*.${ext}"), type: 'file', maxdepth: 1)
+
+    // Acquire reference files
+    input = file(params.references);
+    if (input.isDirectory()){
+        reference_files = []
+        references = file(params.references, type: "dir", checkIfExists:true);
+        for (ext in extensions) {
+            reference_files += file(references.resolve("*.${ext}"), type: 'file', maxdepth: 1)
+        }
     }
+    else{
+        reference_files = file(params.references, type: "file", checkIfExists:true);
+    }
+    
+  
     if (reference_files.size() == 0) {
-            println('Error: No references found in the directory provided.')
+             println('Error: No references found in the directory provided.')
             exit 1 
     }
     else {
-        reference_files = channel
-            .fromPath(reference_files)
+          reference_files = channel.fromPath(reference_files)
     }
+
+        
+    
     counts = file(params.counts, checkIfExists: params.counts == 'NO_COUNTS' ? false : true)
     // Run pipeline
     results = pipeline(fastq, reference_files, counts)
