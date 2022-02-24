@@ -6,7 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 ### Changed.
-- reference can be either a directory or single file
+- reference can be either a directory or single file.
+- output one merged CSV vs one for each barcode.
+- speed up a few steps including mosdepth and report creation.
 
 ## [v0.1.0]
 ### Fixed.

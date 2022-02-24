@@ -36,7 +36,7 @@ process fastcatUncompress {
         env SAMPLE_ID, emit: sample_id
     """
     fastcat -H -s ${sample_id} -r temp.stats -x ${directory} > temp.fastq 
-    fastq_header_to_SAM_tags.py temp.fastq -o ${sample_id}.reads.fastq
+    fastq_header_to_SAM_tags.py temp.fastq -o ${sample_id}.reads.fastq -barcode $sample_id
     gzip ${sample_id}.reads.fastq
     SAMPLE_ID="${sample_id}"
     rm -rf *temp*
@@ -123,10 +123,9 @@ process splitByReference {
 
 process refLengths {
     label "wfalignment"
-    cpus params.threads
+    cpus 1
     input:
         path reference
-        each path(indexed_bam)
     output:
         path "lengths.csv"
     """
@@ -136,31 +135,47 @@ process refLengths {
     """
 }
 
+process addStepsColumn { 
+    label "wfalignment"
+    cpus 1
+    input:
+        path "lengths.csv"
+    output:
+        path "lengths_with_steps.csv"
+    '''
+    #!/usr/bin/env python
+    import pandas as pd
+    all = pd.read_csv('lengths.csv')
+    all["step"] = all["lengths"]//200
+    all.replace(0, 1)
+    all.to_csv('lengths_with_steps.csv', index=False, header=False)
+    '''
+
+}
+
 
 process readDepthPerRef {
-    depth_threads = {params.threads >= 4  ? 4 : 1}
+    depth_threads = {params.threads >= 4  ? 4 : params.threads}
     label "wfalignment"
     cpus depth_threads
     input:
-        tuple val(ref_name), val(ref_len), file(ref_bam)
+        file ref_len
+        file alignment
     output:
-        path "*.bed"
+        path "*bed*"
     script:
-        def sampleName = "$ref_bam".split(/\./)[4]
-        int test = "$ref_len".toInteger()
-        def steps = Math.round(Math.floor(test/200))
-        if (steps == 0){
-            steps = 1;
-        }
-    
+       sampleName = alignment.simpleName
+       def part = "${alignment}".split(/\./)[1] 
     """
-    samtools index $ref_bam
-    mosdepth -n --fast-mode --by $steps -t $task.cpus ${sampleName}.${ref_name}.temp $ref_bam
-    zgrep '$ref_name' ${sampleName}.${ref_name}.temp.regions.bed.gz > ${sampleName}.${ref_name}.bed
+    samtools index $alignment
+    while IFS=, read -r name lengths steps; do
+        mosdepth -n --fast-mode --by "\$steps" --chrom "\$name" -t $task.cpus ${sampleName}."\$name".temp $alignment
+    done < $ref_len
+    cat *.regions.bed.gz > ${sampleName}.all_regions.bed.gz
     rm -rf *temp*
-    rm -rf *bam*
     """
 }
+
 
 
 process gatherStats {
@@ -241,6 +256,33 @@ process plotStats {
 }
 
 
+process mergeCSV {
+    label "wfalignment"
+    cpus 1
+    input:
+        path files
+    output:
+        path 'final_merged.csv'
+    """
+    awk '(NR == 1) || (FNR > 1)' $files > final_merged.csv
+    """
+}
+
+
+process getRefNames {
+    label "wfalignment"
+    maxForks 1
+    cpus 1
+    input:
+        each path(reference)
+    output:
+        path "*.txt"
+    """
+    seqkit fx2tab --name --only-id $reference > ${reference.baseName}.txt
+    """
+}
+
+
 // workflow module
 workflow pipeline {
     take:
@@ -265,7 +307,11 @@ workflow pipeline {
         split_by_ref = splitByReference(merged)
 
         // Find reference lengths
-        ref_length = refLengths(combined, indexed_bam)
+        ref_length = refLengths(combined)
+
+        // add steps column for use with mosdepth
+        ref_steps = addStepsColumn(ref_length[0])
+
 
         // Output tuples containing ref_id, length
         length_ch = ref_length[0].splitCsv(header:true)
@@ -276,25 +322,28 @@ workflow pipeline {
         ref_len_bam = length_ch.join(named_bams)
 
         // Find read_depth per reference/bam file
-        depth_per_ref = readDepthPerRef(ref_len_bam)
+        depth_per_ref = readDepthPerRef(ref_steps, aligned.sorted)
 
         // get params & versions
         workflow_params = getParams()
         software_versions = getVersions()
 
+        //get references names faster that pysam
+        ref = getRefNames(references.flatten())
 
         // Merge the stats together to get a csv out
         stats = gatherStats(alignReads.out.json, counts)
         sample_ids = uncompressed.sample_id.collectFile(name: 'sample_ids.csv', newLine: true)
+        merged = mergeCSV(stats.merged_mapula_csv.collect())
 
         report = plotStats(stats.merged_mapula_json.collect(), counts,
-        references.collect(),
+        ref.collect(),
         aligned.unmapped_stats.collect(),  software_versions, workflow_params,
         sample_ids, depth_per_ref.collect())
     emit:
         merged = merged
         indexed = indexed_bam
-        merged_mapula_csv = stats.merged_mapula_csv
+        merged_mapula_csv = merged
         merged_mapula_json = stats.merged_mapula_json
         report = report.report
         telemetry = workflow_params
