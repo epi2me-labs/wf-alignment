@@ -262,7 +262,7 @@ process mergeCSV {
     input:
         path files
     output:
-        path 'final_merged.csv'
+        path "*final_merged.csv"
     """
     awk '(NR == 1) || (FNR > 1)' $files > final_merged.csv
     """
@@ -358,9 +358,9 @@ process output {
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*", saveAs: { 
         f -> params.prefix ? "${params.prefix}-${f}" : "${f}" }
     input:
-        file fname
+        path fname
     output:
-        file fname
+        path fname
     """
     echo "Writing output files"
     """
@@ -410,6 +410,3 @@ workflow {
     // End ping
     end_ping(pipeline.out.telemetry)
 }
-
-
-
