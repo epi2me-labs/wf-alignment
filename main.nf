@@ -105,22 +105,6 @@ process indexBam {
 }
 
 
-process splitByReference {
-    label "wfalignment"
-    cpus params.threads
-    input:
-        file merged_bam
-    output:
-       path "*.sorted.aligned.*.bam", emit: per_ref_bam
-    script:
-        def sampleName = merged_bam.simpleName
-    """
-    samtools index $merged_bam
-    bamtools split -in $merged_bam -reference -refPrefix "$sampleName".
-    """
-}
-
-
 process refLengths {
     label "wfalignment"
     cpus 1
@@ -262,7 +246,7 @@ process mergeCSV {
     input:
         path files
     output:
-        path "*final_merged.csv"
+        path 'final_merged.csv'
     """
     awk '(NR == 1) || (FNR > 1)' $files > final_merged.csv
     """
@@ -300,26 +284,14 @@ workflow pipeline {
         // Align the reads to produce bams and stats
         aligned = alignReads(
            uncompressed.fastq, references.collect(), combined, counts)   
-        merged = mergeBAM(aligned.sorted)
-        indexed_bam = indexBam(merged)
-
-        // Split bam by reference
-        split_by_ref = splitByReference(merged)
+        merged_bams = mergeBAM(aligned.sorted)
+        indexed_bam = indexBam(merged_bams)
 
         // Find reference lengths
         ref_length = refLengths(combined)
 
         // add steps column for use with mosdepth
         ref_steps = addStepsColumn(ref_length[0])
-
-
-        // Output tuples containing ref_id, length
-        length_ch = ref_length[0].splitCsv(header:true)
-                    .map{ row-> tuple(row.name, row.lengths) }
-        // Output tuples containing ref_id, bam_file
-        named_bams = nameIt(split_by_ref.per_ref_bam.flatten())
-        // Join tuples to make ref_id, length, bam_file
-        ref_len_bam = length_ch.join(named_bams)
 
         // Find read_depth per reference/bam file
         depth_per_ref = readDepthPerRef(ref_steps, aligned.sorted)
@@ -334,16 +306,16 @@ workflow pipeline {
         // Merge the stats together to get a csv out
         stats = gatherStats(alignReads.out.json, counts)
         sample_ids = uncompressed.sample_id.collectFile(name: 'sample_ids.csv', newLine: true)
-        merged = mergeCSV(stats.merged_mapula_csv.collect())
+        merged_csv = mergeCSV(stats.merged_mapula_csv.collect())
 
         report = plotStats(stats.merged_mapula_json.collect(), counts,
         ref.collect(),
         aligned.unmapped_stats.collect(),  software_versions, workflow_params,
         sample_ids, depth_per_ref.collect())
     emit:
-        merged = merged
+        merged = merged_bams
         indexed = indexed_bam
-        merged_mapula_csv = merged
+        merged_mapula_csv = merged_csv
         merged_mapula_json = stats.merged_mapula_json
         report = report.report
         telemetry = workflow_params
@@ -399,8 +371,6 @@ workflow {
           reference_files = channel.fromPath(reference_files)
     }
 
-        
-    
     counts = file(params.counts, checkIfExists: params.counts == 'NO_COUNTS' ? false : true)
     // Run pipeline
     results = pipeline(fastq, reference_files, counts)
