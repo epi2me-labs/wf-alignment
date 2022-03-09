@@ -9,8 +9,8 @@ include { start_ping; end_ping } from './lib/ping'
 
 
 def nameIt(ch) {
-            return ch.map { it -> return tuple("$it".split(/\./)[-2], it) }
-        }
+    return ch.map { it -> return tuple("$it".split(/\./)[-2], it) }
+    }
 
 
 process combineReferences {
@@ -161,7 +161,6 @@ process readDepthPerRef {
 }
 
 
-
 process gatherStats {
     label "wfalignment"
     cpus 1
@@ -223,7 +222,6 @@ process plotStats {
         path "params.json"
         file sample_ids
         path "depth_beds/*"
-
     output:
         path "*.html", optional: true, emit: report
     script:
@@ -283,7 +281,10 @@ workflow pipeline {
 
         // Align the reads to produce bams and stats
         aligned = alignReads(
-           uncompressed.fastq, references.collect(), combined, counts)   
+           uncompressed.fastq,
+           references.collect(),
+           combined,
+           counts)   
         merged_bams = mergeBAM(aligned.sorted)
         indexed_bam = indexBam(merged_bams)
 
@@ -305,13 +306,16 @@ workflow pipeline {
 
         // Merge the stats together to get a csv out
         stats = gatherStats(alignReads.out.json, counts)
-        sample_ids = uncompressed.sample_id.collectFile(name: 'sample_ids.csv', newLine: true)
+        sample_ids = uncompressed.sample_id.collectFile(
+            name: 'sample_ids.csv', newLine: true)
         merged_csv = mergeCSV(stats.merged_mapula_csv.collect())
 
-        report = plotStats(stats.merged_mapula_json.collect(), counts,
-        ref.collect(),
-        aligned.unmapped_stats.collect(),  software_versions, workflow_params,
-        sample_ids, depth_per_ref.collect())
+        report = plotStats(
+            stats.merged_mapula_json.collect(), counts,
+            ref.collect(),
+            aligned.unmapped_stats.collect(),
+            software_versions, workflow_params,
+            sample_ids, depth_per_ref.collect())
     emit:
         merged = merged_bams
         indexed = indexed_bam
@@ -351,20 +355,20 @@ workflow {
 
     // Acquire reference files
     input = file(params.references);
-    if (input.isDirectory()){
+    if (input.isDirectory()) {
         reference_files = []
         references = file(params.references, type: "dir", checkIfExists:true);
         for (ext in extensions) {
             reference_files += file(references.resolve("*.${ext}"), type: 'file', maxdepth: 1)
         }
     }
-    else{
+    else {
         reference_files = file(params.references, type: "file", checkIfExists:true);
     }
     
   
     if (reference_files.size() == 0) {
-             println('Error: No references found in the directory provided.')
+            println('Error: No references found in the directory provided.')
             exit 1 
     }
     else {
