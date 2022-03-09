@@ -144,10 +144,11 @@ class PlotMappingStats(HTMLSection):
                 select = Select(
                     title="Select reference for " + name + ':',
                     value=drop_down[0], options=drop_down)
-                plot = figure(plot_height=350, y_range=None, x_range=None,
-                              x_axis_label='Position along reference',
-                              y_axis_label='Sequencing depth / Bases',
-                              title=str(name))
+                plot = figure(
+                    plot_height=350, y_range=None, x_range=None,
+                    x_axis_label='Position along reference',
+                    y_axis_label='Sequencing depth / Bases',
+                    title=str(name))
                 plot.step(x='x', y='y', source=source)
                 plot.xaxis.formatter.use_scientific = False
                 select.js_on_change('value', CustomJS(
@@ -466,8 +467,9 @@ class PlotMappingStats(HTMLSection):
             y_axis_label='Number of alignments',
             tools=""
         )
-        plot.vbar(x=labels, top=counts,
-                  width=0.9, fill_color=Colors.cerulean)
+        plot.vbar(
+            x=labels, top=counts,
+            width=0.9, fill_color=Colors.cerulean)
         plot.xgrid.grid_line_color = None
         plot.y_range.start = 0
 
@@ -780,25 +782,27 @@ def gather_sample_files(sample_names):
     sample_files = {}
     for sample_name in sample_names:
         mapula_json = os.path.join(
-                      'merged_mapula_json',
-                      sample_name + '.merged.mapula.json')
+            'merged_mapula_json',
+            sample_name + '.merged.mapula.json')
         unmapped_stats = os.path.join(
-                        'unmapped_stats', sample_name + '.unmapped.stats')
+            'unmapped_stats', sample_name + '.unmapped.stats')
         depth_beds = os.path.join(
-                        'depth_beds', sample_name + '.all_regions.bed.gz')
-        expected_files = {'Mapula file': mapula_json,
-                          'Unmapped file': unmapped_stats,
-                          'depth beds': depth_beds}
-        final_files = {'Mapula file': mapula_json,
-                       'Unmapped file': unmapped_stats,
-                       'depth beds': depth_beds}
+            'depth_beds', sample_name + '.all_regions.bed.gz')
+        expected_files = {
+            'Mapula file': mapula_json,
+            'Unmapped file': unmapped_stats,
+            'depth beds': depth_beds}
+        final_files = {
+            'Mapula file': mapula_json,
+            'Unmapped file': unmapped_stats,
+            'depth beds': depth_beds}
         for name, file in expected_files.items():
             if os.path.exists(file):
                 pass
             else:
                 final_files[name] = 'None'
                 print('Missing {0} required for report for: {1}'.format(
-                       name, sample_name))
+                    name, sample_name))
         sample_files[sample_name] = final_files
     return(sample_files)
 
@@ -855,12 +859,14 @@ def main():
         revision=args.revision,
         commit=args.commit)
     section = report_doc.add_section()
-    section.markdown("Results generated through the wf-alignment "
-                     "nextflow workflow provided by Oxford Nanopore "
-                     "Technologies")
+    section.markdown(
+        "Results generated through the wf-alignment "
+        "nextflow workflow provided by Oxford Nanopore "
+        "Technologies")
     section.markdown('### Alignment statistics')
-    section.markdown("Statistics are provided for each barcode "
-                     "or sample name if a sample sheet was provided.")
+    section.markdown(
+        "Statistics are provided for each barcode "
+        "or sample name if a sample sheet was provided.")
     section.markdown(
         "Alignment was done using the following reference files:")
     all_references = get_references(args.references)
@@ -869,17 +875,18 @@ def main():
     sample_files = gather_sample_files(args.sample_names[0])
     for name, values in sample_files.items():
         if os.stat(values['Unmapped file']).st_size == 0:
-            unmapped = pd.DataFrame(data=None, index=None, columns=[
-                                    'read_id', 'filename',
-                                    'sample_name', 'read_length',
-                                    'mean_quality', 'channel',
-                                    'read_number', 'start_time'],
-                                    dtype=None, copy=None)
+            unmapped = pd.DataFrame(
+                data=None, index=None, columns=[
+                    'read_id', 'filename',
+                    'sample_name', 'read_length',
+                    'mean_quality', 'channel',
+                    'read_number', 'start_time'],
+                dtype=None, copy=None)
         else:
             unmapped = pd.read_csv(values['Unmapped file'], sep='\t')
         if 'depth beds' in values.keys():
-            depth_sample = pd.read_csv(values['depth beds'],
-                                       sep='\t', header=None)
+            depth_sample = pd.read_csv(
+                values['depth beds'], sep='\t', header=None)
         else:
             depth_sample = pd.DataFrame()
         stats_panel = PlotMappingStats(
