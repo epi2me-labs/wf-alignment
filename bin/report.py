@@ -316,11 +316,7 @@ class PlotMappingStats(HTMLSection):
             sizing_mode="stretch_width")
 
         text = (
-            "This tab shows the cumulative read depth by percentage of "
-            "genome."
-            "\nBy drawing a vertical line from a given coverage,"
-            " the intersection height with the blue line indicates the"
-            " proportion of genome with this coverage or higher."
+            "Plot(s) showing cumulative read depth across reference genome"
         )
         plots = [
             [self.get_description(text)],
