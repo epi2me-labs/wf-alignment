@@ -8,7 +8,7 @@ import os
 import sys
 import typing
 
-from aplanat import hist, points
+from aplanat import hist, lines, points
 from aplanat import report
 from aplanat.components import fastcat
 from aplanat.components import simple as scomponents
@@ -85,6 +85,7 @@ class PlotMappingStats(HTMLSection):
     ):
         """Build_report."""
         tabs = []
+
         # Plot summary
         summary_tab = self.build_summary_tab(data)
         tabs.append(summary_tab)
@@ -108,6 +109,10 @@ class PlotMappingStats(HTMLSection):
         # Plot coverage
         depth_tab = self.depth_graph(references, depth_file)
         tabs.append(depth_tab)
+
+        # Plot whole genome coverage
+        cov_tab = self.build_cumulative_coverage_tab(references, depth_file)
+        tabs.append(cov_tab)
 
         # Plot control
         if counts:
@@ -274,6 +279,54 @@ class PlotMappingStats(HTMLSection):
 
         main = layout(plots, sizing_mode="scale_width")
         return Panel(child=main, title="Coverage")
+
+    def build_cumulative_coverage_tab(self, references, depth_df):
+        """Build cumulative coverage tab."""
+        depth_df = depth_df.copy()
+        depth_df.columns = ['ref', 'start', 'end', 'depth']
+        inv_map ={}
+        for genome, contigs in references.items():
+            inv_map.update({contig:genome for contig in contigs})
+        depth_df['genome'] = depth_df.ref.map(inv_map)
+
+        refgb = depth_df.groupby('genome')
+
+        plots = []
+        for genome, df in refgb:
+            df.depth = df['depth'].astype(float)
+            df.sort_values('depth', ascending=True, inplace=True)
+            x = df.depth.to_numpy()
+            binner = len(x) // 100
+            x = x[1:-1:binner]
+            y = np.array(list(range(len(x))))
+            # Normalise y to percentage of genome
+            y = y / y[-1] * 100
+            y = np.flip(y)
+            p = lines.line([x], [y],
+                x_axis_label='Read depth',
+                y_axis_label='Percentage of genome',
+                title=genome)
+
+            plots.append(p)
+
+        coverage_grid = gridplot(
+            plots, ncols=2,
+            sizing_mode="stretch_width")
+
+        text = (
+            "This tab shows the cumulative read depth by percentage of genome."
+            "\nBy drawing a line vertically up from a given coverage,"
+            " intersection height with the blue line indicates what proportion "
+            " genome has this"
+            " coverage or higher."
+        )
+        plots = [
+            [self.get_description(text)],
+            [coverage_grid]
+        ]
+
+        main = layout(plots, sizing_mode="scale_width")
+        return Panel(child=main, title="Cumulative genome coverage")
 
     def build_length_tab(self, data):
         """Build_length_tab."""
