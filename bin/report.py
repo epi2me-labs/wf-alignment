@@ -284,25 +284,27 @@ class PlotMappingStats(HTMLSection):
         """Build cumulative coverage tab."""
         depth_df = depth_df.copy()
         depth_df.columns = ['ref', 'start', 'end', 'depth']
-        inv_map ={}
-        for genome, contigs in references.items():
-            inv_map.update({contig:genome for contig in contigs})
-        depth_df['genome'] = depth_df.ref.map(inv_map)
 
-        refgb = depth_df.groupby('genome')
+        # Map Genome names onto the depth frame
+        genome_name_map = {}
+        for genome, contigs in references.items():
+            genome_name_map.update({contig: genome for contig in contigs})
+        depth_df['genome'] = depth_df.ref.map(genome_name_map)
 
         plots = []
-        for genome, df in refgb:
+        for genome, df in depth_df.groupby('genome'):
             df.depth = df['depth'].astype(float)
             df.sort_values('depth', ascending=True, inplace=True)
             x = df.depth.to_numpy()
             binner = len(x) // 100
+            # Select slices from the depth-sorted array
             x = x[1:-1:binner]
             y = np.array(list(range(len(x))))
             # Normalise y to percentage of genome
             y = y / y[-1] * 100
             y = np.flip(y)
-            p = lines.line([x], [y],
+            p = lines.line(
+                [x], [y],
                 x_axis_label='Read depth',
                 y_axis_label='Percentage of genome',
                 title=genome)
@@ -314,11 +316,11 @@ class PlotMappingStats(HTMLSection):
             sizing_mode="stretch_width")
 
         text = (
-            "This tab shows the cumulative read depth by percentage of genome."
-            "\nBy drawing a line vertically up from a given coverage,"
-            " intersection height with the blue line indicates what proportion "
-            " genome has this"
-            " coverage or higher."
+            "This tab shows the cumulative read depth by percentage of "
+            "genome."
+            "\nBy drawing a vertical line from a given coverage,"
+            " the intersection height with the blue line indicates the"
+            " proportion of genome with this coverage or higher."
         )
         plots = [
             [self.get_description(text)],
