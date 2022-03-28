@@ -8,9 +8,9 @@ import os
 import sys
 import typing
 
-from aplanat import hist, lines, points
+from aplanat import hist, points
 from aplanat import report
-from aplanat.components import fastcat
+from aplanat.components import depthcoverage, fastcat
 from aplanat.components import simple as scomponents
 from aplanat.report import HTMLSection
 from aplanat.util import Colors
@@ -293,30 +293,14 @@ class PlotMappingStats(HTMLSection):
 
         plots = []
         for genome, df in depth_df.groupby('genome'):
-            df.depth = df['depth'].astype(float)
-            df.sort_values('depth', ascending=True, inplace=True)
-            x = df.depth.to_numpy()
-            binner = len(x) // 100
-            # Select slices from the depth-sorted array
-            x = x[1:-1:binner]
-            y = np.array(list(range(len(x))))
-            # Normalise y to percentage of genome
-            y = y / y[-1] * 100
-            y = np.flip(y)
-            p = lines.line(
-                [x], [y],
-                x_axis_label='Read depth',
-                y_axis_label='Percentage of genome',
-                title=genome)
-
-            plots.append(p)
+            plots.append(depthcoverage.cumulative_depth_from_bed(df))
 
         coverage_grid = gridplot(
             plots, ncols=2,
             sizing_mode="stretch_width")
 
         text = (
-            "Plot(s) showing cumulative read depth across reference genome"
+            "Plot(s) showing cumulative read depth across reference genome."
         )
         plots = [
             [self.get_description(text)],
