@@ -10,7 +10,7 @@ import typing
 
 from aplanat import hist, points
 from aplanat import report
-from aplanat.components import fastcat
+from aplanat.components import depthcoverage, fastcat
 from aplanat.components import simple as scomponents
 from aplanat.report import HTMLSection
 from aplanat.util import Colors
@@ -85,6 +85,7 @@ class PlotMappingStats(HTMLSection):
     ):
         """Build_report."""
         tabs = []
+
         # Plot summary
         summary_tab = self.build_summary_tab(data)
         tabs.append(summary_tab)
@@ -108,6 +109,10 @@ class PlotMappingStats(HTMLSection):
         # Plot coverage
         depth_tab = self.depth_graph(references, depth_file)
         tabs.append(depth_tab)
+
+        # Plot whole genome coverage
+        cov_tab = self.build_cumulative_coverage_tab(references, depth_file)
+        tabs.append(cov_tab)
 
         # Plot control
         if counts:
@@ -274,6 +279,36 @@ class PlotMappingStats(HTMLSection):
 
         main = layout(plots, sizing_mode="scale_width")
         return Panel(child=main, title="Coverage")
+
+    def build_cumulative_coverage_tab(self, references, depth_df):
+        """Build cumulative coverage tab."""
+        depth_df = depth_df.copy()
+        depth_df.columns = ['ref', 'start', 'end', 'depth']
+
+        # Map Genome names onto the depth frame
+        genome_name_map = {}
+        for genome, contigs in references.items():
+            genome_name_map.update({contig: genome for contig in contigs})
+        depth_df['genome'] = depth_df.ref.map(genome_name_map)
+
+        plots = []
+        for genome, df in depth_df.groupby('genome'):
+            plots.append(depthcoverage.cumulative_depth_from_bed(df))
+
+        coverage_grid = gridplot(
+            plots, ncols=2,
+            sizing_mode="stretch_width")
+
+        text = (
+            "Plot(s) showing cumulative read depth across reference genome."
+        )
+        plots = [
+            [self.get_description(text)],
+            [coverage_grid]
+        ]
+
+        main = layout(plots, sizing_mode="scale_width")
+        return Panel(child=main, title="Cumulative genome coverage")
 
     def build_length_tab(self, data):
         """Build_length_tab."""
