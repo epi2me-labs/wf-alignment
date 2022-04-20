@@ -102,7 +102,6 @@
                     "default": false,
                     "description": "Enable to prevent sending a workflow ping."
                 }
-
             }
         },
         "generic_options": {
@@ -145,12 +144,16 @@
         },
         "wfversion": {
             "type": "string",
-            "default": "v0.1.1",
+            "default": "v0.1.2",
             "hidden": true
         },
         "aws_queue": {
             "type": "string",
             "hidden": true
         }
+    },
+    "docs": {
+        "intro": "## Introduction\n\nThis workflow provides an easy way to align Oxford Nanopore reads and gather mapping\nstats either locally for small amounts of data or at scale in a distributed\nenvironment such as a cluster.\n",
+        "links": "* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)\n* [conda](https://docs.conda.io/en/latest/miniconda.html)\n* [minimap2](https://github.com/lh3/minimap2)"
     }
 }
