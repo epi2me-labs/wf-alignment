@@ -153,7 +153,7 @@
         }
     },
     "docs": {
-        "intro": "## Introduction\n\n\n",
+        "intro": "## Introduction\n\nThis workflow provides an easy way to align Oxford Nanopore reads and gather mapping\nstats either locally for small amounts of data or at scale in a distributed\nenvironment such as a cluster.\n",
         "links": "* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)\n* [conda](https://docs.conda.io/en/latest/miniconda.html)\n* [minimap2](https://github.com/lh3/minimap2)"
     }
 }

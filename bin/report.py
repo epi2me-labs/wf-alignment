@@ -293,7 +293,8 @@ class PlotMappingStats(HTMLSection):
 
         plots = []
         for genome, df in depth_df.groupby('genome'):
-            plots.append(depthcoverage.cumulative_depth_from_bed(df))
+            plots.append(
+                depthcoverage.cumulative_depth_from_bed(df, title=genome))
 
         coverage_grid = gridplot(
             plots, ncols=2,

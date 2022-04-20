@@ -1,11 +1,11 @@
 # wf-alignment
-This workflow provides an easy way to align Oxford Nanopore reads and gather mapping
-stats either locally for small amounts of data or at scale in a distributed
-environment such as a cluster.
+
 
 ## Introduction
 
-
+This workflow provides an easy way to align Oxford Nanopore reads and gather mapping
+stats either locally for small amounts of data or at scale in a distributed
+environment such as a cluster.
 ## Quickstart
 
 The workflow uses [nextflow](https://www.nextflow.io/) to manage compute and 
