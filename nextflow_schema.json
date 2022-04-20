@@ -102,7 +102,6 @@
                     "default": false,
                     "description": "Enable to prevent sending a workflow ping."
                 }
-
             }
         },
         "generic_options": {
@@ -152,5 +151,9 @@
             "type": "string",
             "hidden": true
         }
+    },
+    "docs": {
+        "intro": "## Introduction\n\n\n",
+        "links": "* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)\n* [conda](https://docs.conda.io/en/latest/miniconda.html)\n* [minimap2](https://github.com/lh3/minimap2)"
     }
 }
