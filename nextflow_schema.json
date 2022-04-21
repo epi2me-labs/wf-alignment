@@ -144,7 +144,7 @@
         },
         "wfversion": {
             "type": "string",
-            "default": "v0.1.2",
+            "default": "v0.1.3",
             "hidden": true
         },
         "aws_queue": {
