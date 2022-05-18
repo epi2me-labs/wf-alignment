@@ -130,6 +130,8 @@ class PlotMappingStats(HTMLSection):
         # create list of graphs
         graphs = []
         # create dictionary of {ref: depths}
+        if str(depth_file) == 'None':
+            return None
         depth_file.columns = ['ref', 'start', 'end', 'depth']
         all_ref = dict(tuple(depth_file.groupby(['ref'])))
         ref_keys = list(all_ref.keys())
@@ -282,9 +284,10 @@ class PlotMappingStats(HTMLSection):
 
     def build_cumulative_coverage_tab(self, references, depth_df):
         """Build cumulative coverage tab."""
+        if str(depth_df) == 'None':
+            return None
         depth_df = depth_df.copy()
         depth_df.columns = ['ref', 'start', 'end', 'depth']
-
         # Map Genome names onto the depth frame
         genome_name_map = {}
         for genome, contigs in references.items():
@@ -920,11 +923,11 @@ def main():
                 dtype=None, copy=None)
         else:
             unmapped = pd.read_csv(values['Unmapped file'], sep='\t')
-        if 'depth beds' in values.keys():
+        if str(values['depth beds']) != 'None':
             depth_sample = pd.read_csv(
                 values['depth beds'], sep='\t', header=None)
         else:
-            depth_sample = pd.DataFrame()
+            depth_sample = 'None'
         stats_panel = PlotMappingStats(
                 json=values['Mapula file'],
                 counts=args.counts,
