@@ -131,7 +131,7 @@ process addStepsColumn {
     import pandas as pd
     all = pd.read_csv('lengths.csv')
     all["step"] = all["lengths"]//200
-    all.replace(0, 1)
+    all = all.replace(0, 1)
     all.to_csv('lengths_with_steps.csv', index=False, header=False)
     '''
 
@@ -272,6 +272,11 @@ workflow pipeline {
         references
         counts
     main:
+
+        // Ready the optional file
+        OPTIONAL = file("$projectDir/data/OPTIONAL_FILE")
+
+
         
         //uncompress and combine fastq's if multiple files
         uncompressed = fastcatUncompress(fastq)
@@ -295,7 +300,10 @@ workflow pipeline {
         ref_steps = addStepsColumn(ref_length[0])
 
         // Find read_depth per reference/bam file
-        depth_per_ref = readDepthPerRef(ref_steps, aligned.sorted)
+        depth_per_ref = file(OPTIONAL, type: "file")
+        if (params.depth_coverage){
+            depth_per_ref = readDepthPerRef(ref_steps, aligned.sorted)
+        }
 
         // get params & versions
         workflow_params = getParams()
@@ -330,6 +338,7 @@ workflow pipeline {
 // This is the only way to publish files from a workflow whilst
 // decoupling the publish from the process steps.
 process output {
+    label "wfalignment"
     // publish inputs to output directory
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*", saveAs: { 
         f -> params.prefix ? "${params.prefix}-${f}" : "${f}" }

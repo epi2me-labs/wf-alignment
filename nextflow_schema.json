@@ -71,6 +71,11 @@
             "description": "Parameters used to describe centralised config profiles. These should not be edited.",
             "help_text": "The centralised nf-core configuration profiles use a handful of pipeline parameters to describe themselves. This information is then printed to the Nextflow log when you run a pipeline. You should not need to change these values when you run a pipeline.",
             "properties": {
+                "depth_coverage": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "The depth_coverage step can be a bottle neck. Set this to false if your fasta reference sequences used are >50mb to speed things up."
+                },
                 "demultiplex": {
                     "type": "boolean",
                     "description": "Provide this flag to enable demultiplexing of the data"
@@ -99,7 +104,6 @@
                 },
                 "disable_ping": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable to prevent sending a workflow ping."
                 }
             }
@@ -115,6 +119,11 @@
                     "type": "boolean",
                     "description": "Display help text.",
                     "fa_icon": "fas fa-question-circle",
+                    "hidden": true
+                },
+                "wfversion": {
+                    "type": "string",
+                    "default": "v0.1.4",
                     "hidden": true
                 }
             }
@@ -137,21 +146,6 @@
             "$ref": "#/definitions/generic_options"
         }
     ],
-    "properties": {
-        "aws_image_prefix": {
-            "type": "string",
-            "hidden": true
-        },
-        "wfversion": {
-            "type": "string",
-            "default": "v0.1.3",
-            "hidden": true
-        },
-        "aws_queue": {
-            "type": "string",
-            "hidden": true
-        }
-    },
     "docs": {
         "intro": "## Introduction\n\nThis workflow provides an easy way to align Oxford Nanopore reads and gather mapping\nstats either locally for small amounts of data or at scale in a distributed\nenvironment such as a cluster.\n",
         "links": "* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)\n* [conda](https://docs.conda.io/en/latest/miniconda.html)\n* [minimap2](https://github.com/lh3/minimap2)"
