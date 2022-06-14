@@ -44,6 +44,24 @@ process fastcatUncompress {
 }
 
 
+process nameFastq {
+    label "wfalignment"
+    cpus params.threads
+    input:
+        tuple path(directory), val(sample_id), val(type)
+    output:
+        path "*.fastq.gz", emit: fastq
+        env SAMPLE_ID, emit: sample_id
+    """
+    SAMPLE_ID="${sample_id}"
+    rm -rf *temp*
+    cp $directory/* . 
+    for f in * ; do mv -- "\$f" "${sample_id}.\$f" ; done
+    (gzip ${sample_id}.*.f*q) || echo "already gzipped"
+    """
+}
+
+
 process alignReads {
     label "wfalignment"
     cpus params.threads
@@ -187,7 +205,7 @@ process getVersions {
     script:
     """
     minimap2 --version | sed 's/^/minimap2,/' >> versions.txt
-    samtools --version | head -n 1 | sed 's/ /,/' >> versions.txt
+    samtools --version | (head -n 1 && exit 0) | sed 's/ /,/' >> versions.txt
     fastcat --version | sed 's/^/fastcat,/' >> versions.txt
     mosdepth --version | sed 's/ /,/' >> versions.txt
     aplanat --version | sed 's/ /,/' >> versions.txt
@@ -276,17 +294,20 @@ workflow pipeline {
         // Ready the optional file
         OPTIONAL = file("$projectDir/data/OPTIONAL_FILE")
 
-
-        
         //uncompress and combine fastq's if multiple files
-        uncompressed = fastcatUncompress(fastq)
-
+        if (params.concat_fastq){
+            prepared_fastq = fastcatUncompress(fastq)
+        }
+        else{
+            prepared_fastq = nameFastq(fastq)
+        }
+        
         // Cat the references together for alignment
         combined = combineReferences(references.collect())
 
         // Align the reads to produce bams and stats
         aligned = alignReads(
-           uncompressed.fastq,
+           prepared_fastq.fastq,
            references.collect(),
            combined,
            counts)   
@@ -314,7 +335,7 @@ workflow pipeline {
 
         // Merge the stats together to get a csv out
         stats = gatherStats(alignReads.out.json, counts)
-        sample_ids = uncompressed.sample_id.collectFile(
+        sample_ids = prepared_fastq.sample_id.collectFile(
             name: 'sample_ids.csv', newLine: true)
         merged_csv = mergeCSV(stats.merged_mapula_csv.collect())
 

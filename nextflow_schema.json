@@ -80,6 +80,11 @@
                     "type": "boolean",
                     "description": "Provide this flag to enable demultiplexing of the data"
                 },
+                "concat_fastq": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Set this to false to skip fastq concat step which can take some time, this also assumes your fastq headers are in the standard format"
+                },
                 "threads": {
                     "type": "integer",
                     "default": 4,
