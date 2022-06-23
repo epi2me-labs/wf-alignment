@@ -791,7 +791,7 @@ class PlotMappingStats(HTMLSection):
                 ),
                 'above',
             )
-        for identkey in ['source', 'fasta', 'reference', 'read_group']:
+        for identkey in ['source', 'fasta', 'reference', 'read_group', 'barcode']:  # noqa
             if not data.get(identkey):
                 continue
             plot.add_layout(

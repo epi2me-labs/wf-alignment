@@ -35,11 +35,9 @@ process fastcatUncompress {
         path "*.fastq.gz", emit: fastq
         env SAMPLE_ID, emit: sample_id
     """
-    fastcat -H -s ${sample_id} -r temp.stats -x ${directory} > temp.fastq 
-    fastq_header_to_SAM_tags.py temp.fastq -o ${sample_id}.reads.fastq -barcode $sample_id
+    fastcat -H -s ${sample_id} -r temp.stats -x ${directory} > ${sample_id}.reads.fastq
     gzip ${sample_id}.reads.fastq
     SAMPLE_ID="${sample_id}"
-    rm -rf *temp*
     """
 }
 
