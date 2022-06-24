@@ -128,7 +128,7 @@
                 },
                 "wfversion": {
                     "type": "string",
-                    "default": "v0.1.5",
+                    "default": "v0.1.6",
                     "hidden": true
                 }
             }
