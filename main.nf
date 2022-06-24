@@ -1,5 +1,5 @@
 #!/usr/bin/env nextflow
-
+ 
 import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
