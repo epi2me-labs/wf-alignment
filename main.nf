@@ -5,7 +5,7 @@ nextflow.enable.dsl = 2
 
 include { fastq_ingress } from './lib/fastqingress' 
 include { start_ping; end_ping } from './lib/ping'
-
+ 
 
 
 def nameIt(ch) {
