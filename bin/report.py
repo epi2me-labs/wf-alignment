@@ -438,7 +438,7 @@ class PlotMappingStats(HTMLSection):
         data = pd.Series(base_pairs).reset_index(
             name='value').rename(columns={'index': 'group'})
         data['angle'] = data['value']/data['value'].sum() * 2 * math.pi
-        if len(base_pairs) > 1:
+        if Category20c.get(len(base_pairs)):
             data['color'] = Category20c[len(base_pairs)]
         else:
             data['color'] = Colors.cerulean
