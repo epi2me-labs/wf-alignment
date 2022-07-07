@@ -14,6 +14,7 @@
             "properties": {
                 "out_dir": {
                     "type": "string",
+                    "format": "path",
                     "default": "output",
                     "description": "Path for output"
                 },
@@ -128,7 +129,7 @@
                 },
                 "wfversion": {
                     "type": "string",
-                    "default": "v0.1.7",
+                    "default": "v0.1.8",
                     "hidden": true
                 }
             }
