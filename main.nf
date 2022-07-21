@@ -30,7 +30,7 @@ process fastcatUncompress {
     label "wfalignment"
     cpus params.threads
     input:
-        tuple path(directory)), val(meta)
+        tuple path(directory), val(meta)
     output:
         path "*.fastq.gz", emit: fastq
         env SAMPLE_ID, emit: sample_id
