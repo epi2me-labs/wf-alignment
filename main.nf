@@ -1,11 +1,11 @@
 #!/usr/bin/env nextflow
- 
+
 import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
-include { fastq_ingress } from './lib/fastqingress' 
+include { fastq_ingress } from './lib/fastqingress'
 include { start_ping; end_ping } from './lib/ping'
- 
+
 
 
 def nameIt(ch) {
@@ -30,14 +30,14 @@ process fastcatUncompress {
     label "wfalignment"
     cpus params.threads
     input:
-        tuple path(directory), val(sample_id), val(type)
+        tuple path(directory), val(meta)
     output:
         path "*.fastq.gz", emit: fastq
         env SAMPLE_ID, emit: sample_id
     """
-    fastcat -H -s ${sample_id} -r temp.stats -x ${directory} > ${sample_id}.reads.fastq
-    gzip ${sample_id}.reads.fastq
-    SAMPLE_ID="${sample_id}"
+    fastcat -H -s ${meta.sample_id} -r temp.stats -x ${directory} > ${meta.sample_id}.reads.fastq
+    gzip ${meta.sample_id}.reads.fastq
+    SAMPLE_ID="${meta.sample_id}"
     """
 }
 
@@ -53,7 +53,7 @@ process nameFastq {
     """
     SAMPLE_ID="${sample_id}"
     rm -rf *temp*
-    cp $directory/* . 
+    cp $directory/* .
     for f in * ; do mv -- "\$f" "${sample_id}.\$f" ; done
     (gzip ${sample_id}.*.f*q) || echo "already gzipped"
     """
@@ -71,7 +71,7 @@ process alignReads {
     output:
         path "*.sorted.aligned.bam", emit: sorted
         path "*.mapula.json", emit: json
-        path "*.unmapped.stats", emit: unmapped_stats 
+        path "*.unmapped.stats", emit: unmapped_stats
     script:
         def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
         def sampleName = fastq.simpleName
@@ -79,7 +79,7 @@ process alignReads {
     """
     minimap2 -y -t $task.cpus -ax map-ont $combined $fastq \
     | mapula count $counts_arg -r $reference_files -s fasta run_id barcode -f json -p \
-    | samtools sort -@ $task.cpus -o ${sampleName}.sorted.aligned.bam - 
+    | samtools sort -@ $task.cpus -o ${sampleName}.sorted.aligned.bam -
     mv mapula.json ${sampleName}.mapula.json
     bamtools split -in ${sampleName}.sorted.aligned.bam -mapped
     (bedtools bamtofastq -i *UNMAPPED.bam -fq temp.unmapped.fq \
@@ -90,7 +90,7 @@ process alignReads {
     """
 }
 
-   
+
 process mergeBAM {
     label "wfalignment"
     cpus params.threads
@@ -129,13 +129,13 @@ process refLengths {
     output:
         path "lengths.csv"
     """
-    seqkit fx2tab --length --name --only-id $reference > lengths.txt  
+    seqkit fx2tab --length --name --only-id $reference > lengths.txt
     echo 'name,lengths' > lengths.csv
     tr -s '[:blank:]' ',' <lengths.txt >> lengths.csv
     """
 }
 
-process addStepsColumn { 
+process addStepsColumn {
     label "wfalignment"
     cpus 1
     input:
@@ -165,7 +165,7 @@ process readDepthPerRef {
         path "*bed*"
     script:
        sampleName = alignment.simpleName
-       def part = "${alignment}".split(/\./)[1] 
+       def part = "${alignment}".split(/\./)[1]
     """
     samtools index $alignment
     while IFS=, read -r name lengths steps; do
@@ -221,7 +221,7 @@ process getParams {
         def paramsJSON = new JsonBuilder(params).toPrettyString()
     """
     # Output nextflow params object to JSON
-    echo '$paramsJSON' > params.json 
+    echo '$paramsJSON' > params.json
     """
 }
 
@@ -299,7 +299,7 @@ workflow pipeline {
         else{
             prepared_fastq = nameFastq(fastq)
         }
-        
+
         // Cat the references together for alignment
         combined = combineReferences(references.collect())
 
@@ -308,7 +308,7 @@ workflow pipeline {
            prepared_fastq.fastq,
            references.collect(),
            combined,
-           counts)   
+           counts)
         merged_bams = mergeBAM(aligned.sorted)
         indexed_bam = indexBam(merged_bams)
 
@@ -359,7 +359,7 @@ workflow pipeline {
 process output {
     label "wfalignment"
     // publish inputs to output directory
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "*", saveAs: { 
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "*", saveAs: {
         f -> params.prefix ? "${params.prefix}-${f}" : "${f}" }
     input:
         path fname
@@ -397,11 +397,11 @@ workflow {
     else {
         reference_files = file(params.references, type: "file", checkIfExists:true);
     }
-    
-  
+
+
     if (reference_files.size() == 0) {
             println('Error: No references found in the directory provided.')
-            exit 1 
+            exit 1
     }
     else {
           reference_files = channel.fromPath(reference_files)
@@ -410,8 +410,8 @@ workflow {
     counts = file(params.counts, checkIfExists: params.counts == 'NO_COUNTS' ? false : true)
     // Run pipeline
     results = pipeline(fastq, reference_files, counts)
-    output(results.merged.concat( 
-        results.indexed, results.merged_mapula_csv, 
+    output(results.merged.concat(
+        results.indexed, results.merged_mapula_csv,
         results.merged_mapula_json, results.report ))
     // End ping
     end_ping(pipeline.out.telemetry)
