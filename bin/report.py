@@ -123,7 +123,7 @@ class PlotMappingStats(HTMLSection):
         tabs = list(filter(None, tabs))
         panel = Tabs(tabs=tabs)
         self.plot(panel)
-        return(panel)
+        return panel
 
     def depth_graph(self, references, depth_file):
         """Create depth vs position graph."""
@@ -843,7 +843,7 @@ def gather_sample_files(sample_names):
                 print('Missing {0} required for report for: {1}'.format(
                     name, sample_name))
         sample_files[sample_name] = final_files
-    return(sample_files)
+    return sample_files
 
 
 def main():
