@@ -4,11 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
-### Changed
-- Fastqingress metadata map
 
 ## [v0.1.8]
+### Changed
+- Fastqingress metadata map
 ### Fixed
 - Set out_dir option type to ensure output is written to correct directory on Windows.
 ### Added
