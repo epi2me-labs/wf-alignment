@@ -33,6 +33,18 @@
                     "description": "A fastq file or directory containing fastq input files or directories of input files.",
                     "help_text": "If directories named \\\"barcode*\\\" are found under the `--fastq` directory the data is assumed to be multiplex and each barcode directory will be processed independently. If `.fastq(.gz)` files are found under the `--fastq` directory the sample is assumed to not be multiplexed. In this second case `--samples` should be a simple name rather than a CSV file."
                 },
+                "bam": {
+                    "type": "string",
+                    "format": "path",
+                    "description": "A bam file or directory containing fastq input files or directories of input files.",
+                    "help_text": "If directories named \\\"barcode*\\\" are found under the `--bam` directory the data is assumed to be multiplex and each barcode directory will be processed independently."
+                },
+                "ubam": {
+                    "type": "string",
+                    "format": "path",
+                    "description": "A ubam file or directory containing fastq input files or directories of input files.",
+                    "help_text": "If directories named \\\"barcode*\\\" are found under the `--ubam` directory the data is assumed to be multiplex and each barcode directory will be processed independently."
+                },
                 "counts": {
                     "type": "string",
                     "default": "NO_COUNTS",
@@ -44,10 +56,7 @@
                     "description": "Use additional heuristics to identify barcodes from file paths",
                     "help_text": "Enabling this option will group together files into samples by the presence of strings of the form `barcodeXXX` present in filenames, rather than simply files grouped into directories (as output by MinKNOW and the Guppy basecaller)."
                 }
-            },
-            "required": [
-                "fastq"
-            ]
+            }
         },
         "reference_genome_options": {
             "title": "Reference genome options",

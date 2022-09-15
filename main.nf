@@ -3,8 +3,7 @@
 import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
-include { fastq_ingress } from './lib/fastqingress'
-include { start_ping; end_ping } from './lib/ping'
+include { sample_ingress } from './lib/ingress'
 
 
 
@@ -46,16 +45,16 @@ process nameFastq {
     label "wfalignment"
     cpus params.threads
     input:
-        tuple path(directory), val(sample_id), val(type)
+        tuple path(directory), val(meta)
     output:
         path "*.fastq.gz", emit: fastq
         env SAMPLE_ID, emit: sample_id
     """
-    SAMPLE_ID="${sample_id}"
+    SAMPLE_ID="${meta.sample_id}"
     rm -rf *temp*
     cp $directory/* .
-    for f in * ; do mv -- "\$f" "${sample_id}.\$f" ; done
-    (gzip ${sample_id}.*.f*q) || echo "already gzipped"
+    for f in * ; do mv -- "\$f" "${meta.sample_id}.\$f" ; done
+    (gzip ${meta.sample_id}.*.fastq) || echo "already gzipped"
     """
 }
 
@@ -72,21 +71,64 @@ process alignReads {
         path "*.sorted.aligned.bam", emit: sorted
         path "*.mapula.json", emit: json
         path "*.unmapped.stats", emit: unmapped_stats
+        env SAMPLE_ID, emit: sample_id
     script:
         def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
         def sampleName = fastq.simpleName
 
     """
     minimap2 -y -t $task.cpus -ax map-ont $combined $fastq \
-    | mapula count $counts_arg -r $reference_files -s fasta run_id barcode -f json -p \
+    | mapula count $counts_arg -r $reference_files -s fasta run_id barcode read_group -f json -p \
     | samtools sort -@ $task.cpus -o ${sampleName}.sorted.aligned.bam -
     mv mapula.json ${sampleName}.mapula.json
     bamtools split -in ${sampleName}.sorted.aligned.bam -mapped
     (bedtools bamtofastq -i *UNMAPPED.bam -fq temp.unmapped.fq \
     && fastcat -s temp.unmapped.fq -r ${sampleName}.unmapped.stats -x temp.unmapped.fq >> temp.uncompressed.fastq) \
     || touch ${sampleName}.unmapped.stats
+    SAMPLE_ID="${sampleName}"
     rm -rf *temp*
     rm -rf *UNMAPPED*
+
+    """
+}
+
+
+process mergeBAMS {
+    label "wfalignment"
+    cpus params.threads
+    input:
+        tuple path(directory), val(meta)
+    output:
+        tuple path("*.bam"), val(meta)
+    """
+    samtools merge -o "${meta.sample_id}".bam $directory/*
+    """
+}
+
+
+process countBAM {
+    label "wfalignment"
+    cpus params.threads
+    input:
+        tuple path(bam), val(meta)
+        file reference_files
+        file combined
+        file counts
+    output:
+        path "*.sorted.aligned.bam", emit: sorted
+        path "*.mapula.json", emit: json
+        path "*.unmapped.stats", optional: true, emit: unmapped_stats
+        env SAMPLE_ID, emit: sample_id
+    script:
+        def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
+        def sampleName = meta.sample_id
+
+    """
+    SAMPLE_ID="${sampleName}"
+    mapula count $counts_arg -r $reference_files -s fasta run_id barcode -f json -p $bam
+    samtools sort -@ $task.cpus -o ${sampleName}.sorted.aligned.bam $bam
+    mv mapula.json ${sampleName}.mapula.json
+    rm -rf *temp*
     """
 }
 
@@ -169,7 +211,8 @@ process readDepthPerRef {
     """
     samtools index $alignment
     while IFS=, read -r name lengths steps; do
-        mosdepth -n --fast-mode --by "\$steps" --chrom "\$name" -t $task.cpus ${sampleName}."\$name".temp $alignment
+        mosdepth -n --fast-mode --by "\$steps" --chrom "\$name" -t $task.cpus ${sampleName}."\$name".temp $alignment \
+        || echo "No alignments for "\$name""
     done < $ref_len
     cat *.regions.bed.gz > ${sampleName}.all_regions.bed.gz
     rm -rf *temp*
@@ -249,7 +292,8 @@ process plotStats {
     --unmapped_stats unmapped_stats/* \
     --params params.json \
     --versions versions \
-    --sample_names $sample_ids
+    --sample_names $sample_ids \
+    "dog"
     """
 }
 
@@ -281,34 +325,72 @@ process getRefNames {
 }
 
 
+process minimap2_ubam {
+    label "wfalignment"
+    cpus params.threads
+    input:
+        tuple path(bam), val(meta)
+        file reference
+    output:
+        tuple path("*.mm2.bam"), val(meta), emit: bam
+    script:
+    """
+    samtools fastq -T '*' ${bam} | minimap2 -y -t ${task.cpus} -ax map-ont ${reference} - \
+    | samtools sort -@ ${params.threads} -o ${meta.sample_id}.mm2.bam -
+    samtools index -@ ${params.threads} ${meta.sample_id}.mm2.bam
+    """
+}
+
+
+
 // workflow module
 workflow pipeline {
     take:
-        fastq
+        sample_data
         references
         counts
     main:
 
         // Ready the optional file
         OPTIONAL = file("$projectDir/data/OPTIONAL_FILE")
-
-        //uncompress and combine fastq's if multiple files
-        if (params.concat_fastq){
-            prepared_fastq = fastcatUncompress(fastq)
-        }
-        else{
-            prepared_fastq = nameFastq(fastq)
-        }
-
+    
         // Cat the references together for alignment
         combined = combineReferences(references.collect())
+        
+        //uncompress and combine fastq's if multiple files
+        if (params.bam){
+            bams = mergeBAMS(sample_data)
+            aligned = countBAM(
+                bams,
+                references.collect(),
+                combined,
+                counts)
+        }
+        else if (params.ubam){
+            bams = mergeBAMS(sample_data)
+            fix_ubams = minimap2_ubam(bams,combined)
+            aligned = countBAM(
+                fix_ubams,
+                references.collect(),
+                combined,
+                counts)
+            
+        }else{
+            if (params.concat_fastq){
+                prepared_fastq = fastcatUncompress(sample_data)
+            }
+            else{
+                prepared_fastq = nameFastq(sample_data)
+            }
+              // Align the reads to produce bams and stats
+            aligned = alignReads(
+            prepared_fastq.fastq,
+            references.collect(),
+            combined,
+            counts)
+        }
 
-        // Align the reads to produce bams and stats
-        aligned = alignReads(
-           prepared_fastq.fastq,
-           references.collect(),
-           combined,
-           counts)
+      
         merged_bams = mergeBAM(aligned.sorted)
         indexed_bam = indexBam(merged_bams)
 
@@ -332,15 +414,14 @@ workflow pipeline {
         ref = getRefNames(references.flatten())
 
         // Merge the stats together to get a csv out
-        stats = gatherStats(alignReads.out.json, counts)
-        sample_ids = prepared_fastq.sample_id.collectFile(
+        stats = gatherStats(aligned.json, counts)
+        sample_ids = aligned.sample_id.collectFile(
             name: 'sample_ids.csv', newLine: true)
         merged_csv = mergeCSV(stats.merged_mapula_csv.collect())
-
         report = plotStats(
             stats.merged_mapula_json.collect(), counts,
             ref.collect(),
-            aligned.unmapped_stats.collect(),
+            aligned.unmapped_stats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             software_versions, workflow_params,
             sample_ids, depth_per_ref.collect())
     emit:
@@ -374,15 +455,45 @@ process output {
 // entrypoint workflow
 WorkflowMain.initialise(workflow, params, log)
 workflow {
-    // Start ping
-    start_ping()
+
+
+    if (params.disable_ping == false) {
+        try { 
+            Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
+        } catch(RuntimeException e1) {
+        }
+    }
+
+    def check_list = [params.fastq, params.bam, params.ubam]
+    if (check_list.count(null) != 2){
+        println('Error: Only provide one of fastq, bams or ubam format files.')
+            exit 1
+    }
     // Acquire fastq directory
-    fastq = fastq_ingress([
+    if (params.fastq != null){
+    sample_data = sample_ingress([
         "input":params.fastq,
         "sample":params.sample,
         "sample_sheet":params.sample_sheet,
         "sanitize": params.sanitize_fastq,
         "output":params.out_dir])
+    }else if  (params.bam != null){
+        sample_data = sample_ingress([
+        "input":params.bam,
+        "sample":params.sample,
+        "sample_sheet":params.sample_sheet,
+        "sanitize": params.sanitize_fastq,
+        "output":params.out_dir,
+        "input_type":"bam"])
+    }else if (params.ubam != null){
+        sample_data = sample_ingress([
+        "input":params.ubam,
+        "sample":params.sample,
+        "sample_sheet":params.sample_sheet,
+        "sanitize": params.sanitize_fastq,
+        "output":params.out_dir,
+        "input_type":"ubam"])
+    }
     extensions = ["fasta", "fna", "ffn", "faa", "frn", "fa", "txt", "fa.gz", "fna.gz", "frn.gz", "ffn.gz", "fasta.gz"]
 
     // Acquire reference files
@@ -409,10 +520,24 @@ workflow {
 
     counts = file(params.counts, checkIfExists: params.counts == 'NO_COUNTS' ? false : true)
     // Run pipeline
-    results = pipeline(fastq, reference_files, counts)
+    results = pipeline(sample_data, reference_files, counts)
     output(results.merged.concat(
         results.indexed, results.merged_mapula_csv,
-        results.merged_mapula_json, results.report ))
-    // End ping
-    end_ping(pipeline.out.telemetry)
+        results.merged_mapula_json, results.report, results.telemetry))
+}
+
+if (params.disable_ping == false) {
+    workflow.onComplete {
+        try{
+            Pinguscript.ping_post(workflow, "end", "none", params.out_dir, params)
+        }catch(RuntimeException e1) {
+        }
+    }
+    
+    workflow.onError {
+        try{
+            Pinguscript.ping_post(workflow, "error", "$workflow.errorMessage", params.out_dir, params)
+        }catch(RuntimeException e1) {
+        }
+    }
 }
