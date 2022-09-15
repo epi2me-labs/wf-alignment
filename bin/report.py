@@ -796,7 +796,7 @@ class PlotMappingStats(HTMLSection):
                 continue
             plot.add_layout(
                 Title(
-                    text=data[identkey],
+                    text=str(identkey)+':'+data[identkey],
                     text_line_height=0.5,
                 ),
                 'above'
@@ -913,7 +913,7 @@ def main():
         section.markdown('- ' + str(ref))
     sample_files = gather_sample_files(args.sample_names[0])
     for name, values in sample_files.items():
-        if os.stat(values['Unmapped file']).st_size == 0:
+        if values['Unmapped file'] == "None":
             unmapped = pd.DataFrame(
                 data=None, index=None, columns=[
                     'read_id', 'filename',

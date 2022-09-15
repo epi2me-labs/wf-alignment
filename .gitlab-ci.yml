@@ -1,7 +1,46 @@
+# Include shared CI
 include:
     - project: "epi2melabs/ci-templates"
       file: "wf-containers.yaml"
 
 variables:
-    NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references --counts test_data/counts/ERCC_mix1.csv --threads 2"
-    NF_IGNORE_PROCESSES: "nameFastq"
+        NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references \
+        --counts test_data/counts/ERCC_mix1.csv --threads 2"
+        NF_IGNORE_PROCESSES: "nameFastq"
+
+docker-run:
+
+    # Remove this directive in downstream templates
+    tags: [large_ram] # no need for big ram
+
+    # Define a 1D job matrix to inject a variable named MATRIX_NAME into
+    #   the CI environment, we can use the value of MATRIX_NAME to determine
+    #   which options to apply as part of the rules block below
+    # NOTE There is a slightly cleaner way to define this matrix to include
+    #   the variables, but it is broken when using long strings! See CW-756
+    parallel:
+        matrix:
+            - MATRIX_NAME: [
+                "fastq", "bam", "ubam"
+            ]
+    rules:
+        # NOTE As we're overriding the rules block for the included docker-run
+        #   we must redefine this CI_COMMIT_BRANCH rule to prevent docker-run
+        #   being incorrectly scheduled for "detached merge request pipelines" etc.
+        - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
+          when: never
+        - if: $MATRIX_NAME == "fastq"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references \
+                  --counts test_data/counts/ERCC_mix1.csv --threads 2"
+              NF_IGNORE_PROCESSES: nameFastq,minimap2_ubam,countBAM,mergeBAMS
+        - if: $MATRIX_NAME == "bam"
+          variables:
+              NF_WORKFLOW_OPTS: "--bam test_data/bam --references test_data/references \
+                  --counts test_data/counts/ERCC_mix1.csv --threads 2"
+              NF_IGNORE_PROCESSES: nameFastq,minimap2_ubam,fastcatUncompress,alignReads
+        - if: $MATRIX_NAME == "ubam"
+          variables:
+              NF_WORKFLOW_OPTS: "--ubam test_data/ubam --references test_data/references \
+                  --counts test_data/counts/ERCC_mix1.csv --threads 2"
+              NF_IGNORE_PROCESSES: nameFastq,minimap2_ubam,fastcatUncompress,alignReads
