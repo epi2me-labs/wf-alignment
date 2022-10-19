@@ -18,9 +18,10 @@ process combineReferences {
     input:
         file "reference_*_.fasta"
     output:
-        file "combined.fasta"
+        tuple path("combined.fasta"), path("combined.fasta.fai")
     """
     cat reference_*_.fasta > "combined.fasta"
+    samtools faidx "combined.fasta"
     """
 }
 
@@ -363,16 +364,16 @@ workflow pipeline {
             aligned = countBAM(
                 bams,
                 references.collect(),
-                combined,
+                combined.map{it -> it[0]},
                 counts)
         }
         else if (params.ubam){
             bams = mergeBAMS(sample_data)
-            fix_ubams = minimap2_ubam(bams,combined)
+            fix_ubams = minimap2_ubam(bams,combined.map{it -> it[0]})
             aligned = countBAM(
                 fix_ubams,
                 references.collect(),
-                combined,
+                combined.map{it -> it[0]},
                 counts)
             
         }else{
@@ -386,16 +387,16 @@ workflow pipeline {
             aligned = alignReads(
             prepared_fastq.fastq,
             references.collect(),
-            combined,
+            combined.map{it -> it[0]},
             counts)
         }
 
-      
+
         merged_bams = mergeBAM(aligned.sorted)
         indexed_bam = indexBam(merged_bams)
 
         // Find reference lengths
-        ref_length = refLengths(combined)
+        ref_length = refLengths(combined.map{it -> it[0]})
 
         // add steps column for use with mosdepth
         ref_steps = addStepsColumn(ref_length[0])
@@ -431,6 +432,7 @@ workflow pipeline {
         merged_mapula_json = stats.merged_mapula_json
         report = report.report
         telemetry = workflow_params
+        combine_ref = combined
 }
 
 
@@ -458,10 +460,7 @@ workflow {
 
 
     if (params.disable_ping == false) {
-        try { 
-            Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
-        } catch(RuntimeException e1) {
-        }
+        Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params) 
     }
 
     def check_list = [params.fastq, params.bam, params.ubam]
@@ -523,21 +522,15 @@ workflow {
     results = pipeline(sample_data, reference_files, counts)
     output(results.merged.concat(
         results.indexed, results.merged_mapula_csv,
-        results.merged_mapula_json, results.report, results.telemetry))
+        results.merged_mapula_json, results.report, results.telemetry, results.combine_ref))
 }
 
 if (params.disable_ping == false) {
     workflow.onComplete {
-        try{
-            Pinguscript.ping_post(workflow, "end", "none", params.out_dir, params)
-        }catch(RuntimeException e1) {
-        }
+        Pinguscript.ping_post(workflow, "end", "none", params.out_dir, params)
     }
     
     workflow.onError {
-        try{
-            Pinguscript.ping_post(workflow, "error", "$workflow.errorMessage", params.out_dir, params)
-        }catch(RuntimeException e1) {
-        }
+        Pinguscript.ping_post(workflow, "error", "$workflow.errorMessage", params.out_dir, params)
     }
 }
