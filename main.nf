@@ -155,9 +155,9 @@ process indexBam {
     input:
         file merged_BAM
     output:
-        file "*merged.sorted.aligned.bam.bai"
+        path(merged_BAM), emit: bam
+        path("*merged.sorted.aligned.bam.bai"), emit: bam_index
     script:
-        def sampleName = merged_BAM.simpleName
     """
     samtools index $merged_BAM
     """
@@ -393,7 +393,7 @@ workflow pipeline {
 
 
         merged_bams = mergeBAM(aligned.sorted)
-        indexed_bam = indexBam(merged_bams)
+        merged_and_indexed_bams = indexBam(merged_bams)
 
         // Find reference lengths
         ref_length = refLengths(combined.map{it -> it[0]})
@@ -426,8 +426,8 @@ workflow pipeline {
             software_versions, workflow_params,
             sample_ids, depth_per_ref.collect())
     emit:
-        merged = merged_bams
-        indexed = indexed_bam
+        alignments = merged_and_indexed_bams.bam
+        indexes = merged_and_indexed_bams.bam_index
         merged_mapula_csv = merged_csv
         merged_mapula_json = stats.merged_mapula_json
         report = report.report
@@ -454,6 +454,34 @@ process output {
 }
 
 
+process configure_jbrowse {
+    label "wfalignment"
+    input:
+        path(alignments)
+        path(indexes)
+        tuple path(reference), path(ref_idx)
+    output:
+        path("jbrowse.json")
+    script:
+    ArrayList alignment_args = []
+    int i = 0;
+    for(a in alignments) {
+        // don't be fooled into iterating over bam.size() here
+        // when the cardinality is 1, bam.size() returns the filesize of the bam!
+        this_bam = a
+        this_bai = indexes[i]
+        alignment_args << "--alignment ${params.out_dir}/${this_bam.name} ${params.out_dir}/${this_bai.name}"
+        i++;
+    }
+    String alignment_args_str = alignment_args.join(' ')
+    """
+    configure_jbrowse.py \
+        --reference ${reference} ${params.out_dir}/${reference.name} ${params.out_dir}/${ref_idx.name} \
+        ${alignment_args_str} > jbrowse.json
+    """
+}
+
+
 // entrypoint workflow
 WorkflowMain.initialise(workflow, params, log)
 workflow {
@@ -474,14 +502,12 @@ workflow {
         "input":params.fastq,
         "sample":params.sample,
         "sample_sheet":params.sample_sheet,
-        "sanitize": params.sanitize_fastq,
         "output":params.out_dir])
     }else if  (params.bam != null){
         sample_data = sample_ingress([
         "input":params.bam,
         "sample":params.sample,
         "sample_sheet":params.sample_sheet,
-        "sanitize": params.sanitize_fastq,
         "output":params.out_dir,
         "input_type":"bam"])
     }else if (params.ubam != null){
@@ -489,7 +515,6 @@ workflow {
         "input":params.ubam,
         "sample":params.sample,
         "sample_sheet":params.sample_sheet,
-        "sanitize": params.sanitize_fastq,
         "output":params.out_dir,
         "input_type":"ubam"])
     }
@@ -520,16 +545,26 @@ workflow {
     counts = file(params.counts, checkIfExists: params.counts == 'NO_COUNTS' ? false : true)
     // Run pipeline
     results = pipeline(sample_data, reference_files, counts)
-    output(results.merged.concat(
-        results.indexed, results.merged_mapula_csv,
-        results.merged_mapula_json, results.report, results.telemetry, results.combine_ref))
+
+    jb2_conf = configure_jbrowse(
+        results.alignments.collect(),
+        results.indexes.collect(),
+        results.combine_ref,
+    )
+    output(results.alignments.concat(
+        results.indexes,
+        results.merged_mapula_csv,
+        results.merged_mapula_json,
+        results.report,
+        results.telemetry,
+        results.combine_ref,
+        jb2_conf))
 }
 
 if (params.disable_ping == false) {
     workflow.onComplete {
         Pinguscript.ping_post(workflow, "end", "none", params.out_dir, params)
     }
-    
     workflow.onError {
         Pinguscript.ping_post(workflow, "error", "$workflow.errorMessage", params.out_dir, params)
     }
