@@ -6,7 +6,6 @@ import json
 import math
 import os
 import sys
-import typing
 
 from aplanat import hist, points
 from aplanat import report
@@ -31,13 +30,13 @@ class PlotMappingStats(HTMLSection):
 
     def __init__(
         self,
-        json: str,
-        counts: typing.Union[str, None],
-        references: str,
-        unmapped: str,
-        sample_name: str,
-        depth_file: str,
-    ) -> None:
+        json,
+        counts,
+        references,
+        unmapped,
+        sample_name,
+        depth_file,
+    ):
         """Load the json file and output the dashboard."""
         super().__init__()
         self.json = json
@@ -58,25 +57,23 @@ class PlotMappingStats(HTMLSection):
         )
 
     @staticmethod
-    def load_data(
-        path: str,
-    ) -> dict:
+    def load_data(path):
         """Load_data."""
         try:
             with open(path) as data:
                 try:
                     return json.load(data)
                 except json.decoder.JSONDecodeError:
-                    print('Error loading data from {}'.format(
+                    sys.stdout.write('Error loading data from {}'.format(
                         path))
                     raise
         except IOError:
-            print("Path {} cannot be opened".format(path))
+            sys.stdout.write("Path {} cannot be opened".format(path))
             raise
 
     def build_report(
         self,
-        counts: pd.DataFrame,
+        counts,
         references,
         unmapped,
         sample_name,
@@ -386,7 +383,7 @@ class PlotMappingStats(HTMLSection):
             col in counts_df.columns
             for col in ['reference', 'expected_count']
         ):
-            print(
+            sys.stdout.write(
                 "[Error]: Supplied counts file does not "
                 "contain the required columns, "
                 "'reference,expected_count'"
@@ -840,8 +837,9 @@ def gather_sample_files(sample_names):
                 pass
             else:
                 final_files[name] = 'None'
-                print('Missing {0} required for report for: {1}'.format(
-                    name, sample_name))
+                sys.stdout.write(
+                    'Missing {0} required for report for: {1}'.format(
+                        name, sample_name))
         sample_files[sample_name] = final_files
     return sample_files
 
