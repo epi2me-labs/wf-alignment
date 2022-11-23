@@ -44,7 +44,7 @@ def compareSampleSheet(int sample_sheet_count, int valid_dir_count)
 {
 
     if (sample_sheet_count != valid_dir_count) {
-      log.warn """The number of samplesheet entries ({}) does not match the number of barcoded directories ({})""", sample_sheet_count, valid_dir_count
+        log.warn """The number of samplesheet entries ({}) does not match the number of barcoded directories ({})""", sample_sheet_count, valid_dir_count
     }
 
 }
@@ -322,7 +322,7 @@ def handle_non_barcoded_dirs(non_barcoded_dirs, input_type)
 {
     valid_dirs = get_valid_directories(non_barcoded_dirs, input_type)
     return Channel.fromPath(valid_dirs)
-      .map { path -> tuple(path, create_metamap([sample_id:path.baseName])) }
+        .map { path -> tuple(path, create_metamap([sample_id:path.baseName])) }
 }
 
 def create_metamap(Map arguments) {

@@ -35,8 +35,8 @@ process fastcatUncompress {
         path "*.fastq.gz", emit: fastq
         env SAMPLE_ID, emit: sample_id
     """
-    fastcat -H -s ${meta.sample_id} -r temp.stats -x ${directory} > ${meta.sample_id}.reads.fastq
-    gzip ${meta.sample_id}.reads.fastq
+    fastcat -H -s ${meta.sample_id} -r temp.stats -x ${directory} \
+    | gzip > ${meta.sample_id}.reads.fastq.gz
     SAMPLE_ID="${meta.sample_id}"
     """
 }
@@ -207,8 +207,8 @@ process readDepthPerRef {
     output:
         path "*bed*"
     script:
-       sampleName = alignment.simpleName
-       def part = "${alignment}".split(/\./)[1]
+        sampleName = alignment.simpleName
+        def part = "${alignment}".split(/\./)[1]
     """
     samtools index $alignment
     while IFS=, read -r name lengths steps; do
@@ -485,8 +485,6 @@ process configure_jbrowse {
 // entrypoint workflow
 WorkflowMain.initialise(workflow, params, log)
 workflow {
-
-
     if (params.disable_ping == false) {
         Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params) 
     }
@@ -539,7 +537,7 @@ workflow {
             exit 1
     }
     else {
-          reference_files = channel.fromPath(reference_files)
+        reference_files = channel.fromPath(reference_files)
     }
 
     counts = file(params.counts, checkIfExists: params.counts == 'NO_COUNTS' ? false : true)
