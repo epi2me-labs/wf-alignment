@@ -863,9 +863,8 @@ def main():
         default=None,
         required=False)
     parser.add_argument(
-        "--report_name",
+        "--name",
         help="Report file name.",
-        dest="name",
         required=False,
         default="report")
     parser.add_argument(
@@ -908,7 +907,7 @@ def main():
         "Alignment was done using the following reference files:")
     all_references = get_references(args.references)
     for ref in args.references[::-1]:
-        section.markdown('- ' + str(ref))
+        section.markdown('- ' + str(ref).split('.txt')[0])
     sample_files = gather_sample_files(args.sample_names[0])
     for name, values in sample_files.items():
         if values['Unmapped file'] == "None":
@@ -920,7 +919,16 @@ def main():
                     'read_number', 'start_time'],
                 dtype=None, copy=None)
         else:
-            unmapped = pd.read_csv(values['Unmapped file'], sep='\t')
+            try:
+                unmapped = pd.read_csv(values['Unmapped file'], sep='\t')
+            except pd.errors.EmptyDataError:
+                unmapped = pd.DataFrame(
+                    data=None, index=None, columns=[
+                        'read_id', 'filename',
+                        'sample_name', 'read_length',
+                        'mean_quality', 'channel',
+                        'read_number', 'start_time'],
+                    dtype=None, copy=None)
         if str(values['depth beds']) != 'None':
             depth_sample = pd.read_csv(
                 values['depth beds'], sep='\t', header=None)
@@ -940,7 +948,8 @@ def main():
         section=scomponents.version_table(args.versions))
     report_doc.add_section(
         section=scomponents.params_table(args.params))
-    report_doc.write(args.name + '.html')
+    report_doc.write(
+        args.name if args.name.endswith('.html') else args.name + '.html')
 
 
 if __name__ == "__main__":
