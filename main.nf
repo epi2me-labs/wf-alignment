@@ -286,15 +286,15 @@ process plotStats {
         path "*.html", optional: true, emit: report
     script:
         def counts_arg = counts.name != 'NO_COUNTS' ? "-c ${counts}" : ""
-        def report_name = "wf-alignment-" + params.report_name
+        def report_name = "wf-alignment-report.html"
     """
-    report.py merged_mapula_json/* $counts_arg --report_name '$report_name' \
+    report.py merged_mapula_json/* $counts_arg --name '$report_name' \
     --references $reference_files \
     --unmapped_stats unmapped_stats/* \
     --params params.json \
     --versions versions \
     --sample_names $sample_ids \
-    "dog"
+    "dummy"
     """
 }
 
@@ -321,7 +321,7 @@ process getRefNames {
     output:
         path "*.txt"
     """
-    seqkit fx2tab --name --only-id $reference > ${reference.baseName}.txt
+    seqkit fx2tab --name --only-id $reference > ${reference.name}.txt
     """
 }
 
@@ -540,7 +540,8 @@ workflow {
         reference_files = channel.fromPath(reference_files)
     }
 
-    counts = file(params.counts, checkIfExists: params.counts == 'NO_COUNTS' ? false : true)
+    counts = params.counts ?: 'NO_COUNTS'
+    counts = file(counts, checkIfExists: counts == 'NO_COUNTS' ? false : true)
     // Run pipeline
     results = pipeline(sample_data, reference_files, counts)
 

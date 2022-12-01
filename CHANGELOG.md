@@ -7,12 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 `-profile conda` is no longer supported, users should use `-profile standard` (Docker) or `-profile singularity` instead
 
-## [unreleased]
+## [v0.2.0]
 ### Added
 - Workflow will now output a JBrowse2 `jbrowse.json` configuration
 ### Changed
 - Output combined reference file to `out_dir`
 - `-profile conda` is no longer supported, users should use `-profile standard` (Docker) or `-profile singularity` instead
+- Removed option for specifying report suffix
+- Restructured workflow parameter schema
 
 ## [v0.1.9]
 ### Added
