@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 `-profile conda` is no longer supported, users should use `-profile standard` (Docker) or `-profile singularity` instead
 
+## [v0.2.1]
+### Changed
+- Changed plot layout and margins to avoid overflowing plots
+
 ## [v0.2.0]
 ### Added
 - Workflow will now output a JBrowse2 `jbrowse.json` configuration
