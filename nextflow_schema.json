@@ -181,7 +181,7 @@
         },
         "wfversion": {
             "type": "string",
-            "default": "v0.2.0",
+            "default": "v0.2.1",
             "hidden": true
         },
         "monochrome_logs": {

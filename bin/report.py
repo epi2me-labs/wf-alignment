@@ -149,7 +149,8 @@ class PlotMappingStats(HTMLSection):
                     title="Select reference for " + name + ':',
                     value=drop_down[0], options=drop_down)
                 plot = figure(
-                    plot_height=350, y_range=None, x_range=None,
+                    plot_height=130, plot_width=400,
+                    y_range=None, x_range=None,
                     x_axis_label='Position along reference',
                     y_axis_label='Sequencing depth / Bases',
                     title=str(name))
@@ -163,10 +164,11 @@ class PlotMappingStats(HTMLSection):
                             const new_data = Object.assign({}, source.data)
                             source.data = source_graph[select.value]
                             """))
-                drop_down_plot = layout([select, plot])
+                drop_down_plot = layout(
+                    [select, plot], sizing_mode='scale_width')
                 graphs.append(drop_down_plot)
         alignment_grid = gridplot(
-            graphs, ncols=2,
+            graphs, ncols=1,
             sizing_mode="stretch_width")
         text = (
             "This tab contains visualisations of "
@@ -193,7 +195,7 @@ class PlotMappingStats(HTMLSection):
             return None
 
         alignment_grid = gridplot(
-            alignment_plots, ncols=2,
+            alignment_plots, ncols=1,
             sizing_mode="stretch_width")
 
         text1 = (
@@ -230,8 +232,8 @@ class PlotMappingStats(HTMLSection):
             return None
 
         accuracy_grid = gridplot(
-            accuracy_plots, ncols=2,
-            sizing_mode="stretch_width")
+            accuracy_plots, ncols=1,
+            sizing_mode="scale_width")
 
         text = (
             "This tab contains visualisations of "
@@ -260,8 +262,8 @@ class PlotMappingStats(HTMLSection):
             return None
 
         coverage_grid = gridplot(
-            coverage_plots, ncols=2,
-            sizing_mode="stretch_width")
+            coverage_plots, ncols=1,
+            sizing_mode="scale_width")
 
         text = (
             "This tab contains visualisations of "
@@ -293,12 +295,15 @@ class PlotMappingStats(HTMLSection):
 
         plots = []
         for genome, df in depth_df.groupby('genome'):
-            plots.append(
-                depthcoverage.cumulative_depth_from_bed(df, title=genome))
+            plot = depthcoverage.cumulative_depth_from_bed(df, title=genome)
+            plot.height = 120
+            plot.width = 400
+            self.style_plot(plot)
+            plots.append(plot)
 
         coverage_grid = gridplot(
-            plots, ncols=2,
-            sizing_mode="stretch_width")
+            plots, ncols=1,
+            sizing_mode="scale_width")
 
         text = (
             "Plot(s) showing cumulative read depth across reference genome."
@@ -323,8 +328,8 @@ class PlotMappingStats(HTMLSection):
             return None
 
         length_grid = gridplot(
-            length_plots, ncols=2,
-            sizing_mode="stretch_width")
+            length_plots, ncols=1,
+            sizing_mode="scale_width")
 
         text = (
             "This tab contains visualisations of "
@@ -349,6 +354,8 @@ class PlotMappingStats(HTMLSection):
             if sum(value['aligned_qualities'])
         ]
         fastcat_unmapped = fastcat.read_quality_plot(unmapped)
+        fastcat_unmapped.height = 120
+        fastcat_unmapped.width = 400
         fastcat_unmapped.title.text = 'Unmapped reads'
         quality_plots.append(fastcat_unmapped)
 
@@ -356,8 +363,8 @@ class PlotMappingStats(HTMLSection):
             return None
 
         quality_grid = gridplot(
-            quality_plots, ncols=2,
-            sizing_mode="stretch_width")
+            quality_plots, ncols=1,
+            sizing_mode="scale_width")
 
         text = (
             "This tab contains visualisations of "
@@ -511,6 +518,7 @@ class PlotMappingStats(HTMLSection):
 
         total = f"Total observations: {data['observations']}"
         self.style_plot(plot)
+        plot.margin = (10, 100, 40, 100)
         self.add_plot_title(plot, data, total)
         return plot
 
@@ -524,7 +532,7 @@ class PlotMappingStats(HTMLSection):
         plot = hist.histogram(
             [counts],
             bins=100,
-            height=300,
+            height=140,
             width=400,
             xlim=(0, 100),
             colors=[Colors.cerulean],
@@ -547,7 +555,7 @@ class PlotMappingStats(HTMLSection):
         plot = hist.histogram(
             [counts],
             bins=101,
-            height=300,
+            height=140,
             width=400,
             xlim=(0, 100),
             colors=[Colors.cerulean],
@@ -573,7 +581,7 @@ class PlotMappingStats(HTMLSection):
         plot = hist.histogram(
             [counts],
             bins=600,
-            height=300,
+            height=140,
             width=400,
             xlim=(0, 30),
             colors=[Colors.cerulean],
@@ -600,7 +608,7 @@ class PlotMappingStats(HTMLSection):
         plot = hist.histogram(
             [counts],
             bins=1000,
-            height=300,
+            height=140,
             width=400,
             xlim=(0, max_length + 200),
             colors=[Colors.cerulean],
