@@ -271,7 +271,9 @@ class PlotMappingStats(HTMLSection):
             "the reference that a given alignment covers "
             "ex. soft-clipping). The cov80 gives the number "
             "of alignments which cover more than 80 percent "
-            "of the reference."
+            "of the reference. Note that these plots will "
+            "appear empty when the references are a lot longer "
+            "than the reads."
         )
         plots = [
             [self.get_description(text)],
@@ -295,7 +297,8 @@ class PlotMappingStats(HTMLSection):
 
         plots = []
         for genome, df in depth_df.groupby('genome'):
-            plot = depthcoverage.cumulative_depth_from_bed(df, title=genome)
+            plot = depthcoverage.cumulative_depth_from_bed(
+                df, title=genome, colors=[Colors.cerulean])
             plot.height = 120
             plot.width = 400
             self.style_plot(plot)
