@@ -2,7 +2,7 @@
     "$schema": "http://json-schema.org/draft-07/schema",
     "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
     "title": "epi2me-labs/wf-alignment",
-    "description": "Provides an easy way to align Oxford Nanopore reads and gather mapping stats.",
+    "description": "Align Nanopore reads and visualize mapping statistics.",
     "demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-alignment/wf-alignment-demo.tar.gz",
     "url": "https://github.com/epi2me-labs/wf-alignment",
     "type": "object",
@@ -181,7 +181,7 @@
         },
         "wfversion": {
             "type": "string",
-            "default": "v0.2.2",
+            "default": "v0.2.3",
             "hidden": true
         },
         "monochrome_logs": {
