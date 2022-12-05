@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 `-profile conda` is no longer supported, users should use `-profile standard` (Docker) or `-profile singularity` instead
 
+## [v0.2.3]
+### Changed
+- Updated description in manifest
+
 ## [v0.2.2]
 ### Changed
 - Harmonized line plot colours in report.
