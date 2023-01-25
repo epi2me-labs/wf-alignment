@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 `-profile conda` is no longer supported, users should use `-profile standard` (Docker) or `-profile singularity` instead
 
+## [v0.3.0]
+### Changed
+- uses bamstats instead of mapula
+- uses ezcharts for report
+### Removed
+- legacy option 'demultiplex'
+
 ## [v0.2.4]
 ### Fixed
 - sample_sheet format in schema to expect a file
