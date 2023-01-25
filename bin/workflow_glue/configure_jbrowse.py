@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 """configure_jbrowse."""
+from collections import namedtuple
 import json
 import os
 import sys
 
 import pysam
+
+from .util import get_named_logger, wf_parser  # noqa: ABS101
 
 
 class JbConfig:
@@ -248,9 +251,9 @@ class JbConfig:
         return json.dumps(self.as_dict(), indent=4)
 
 
-if __name__ == "__main__":
-    import argparse
-    from collections import namedtuple
+def main(args):
+    """Run entry point."""
+    logger = get_named_logger("config-jbrowse")
 
     Reference = namedtuple(
         "Reference",
@@ -264,23 +267,6 @@ if __name__ == "__main__":
         "Variant",
         "name vcf_fp index_fp"
     )
-
-    # NOTE the alignment and variant file paths are passed through
-    # to the output JSON and do not need to exist to run this script...
-    # HOWEVER the default session must make reference to the first
-    # reference sequence for display, and yet the reference path may
-    # not be the one we wish to appear in the JSON (eg. from a workdir;
-    # plus we cannot rely on reaching into the out_dir), so we get
-    # around this for now by invoking --reference as:
-    #   --reference <path_to_real_ref> \
-    #               <ref_path_in_config> \
-    #               <fai_path_in_config> \
-    #               [gzi_path_in_config]
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--reference", nargs='+', required=True)
-    parser.add_argument("--alignment", nargs=2, action="append", default=[])
-    parser.add_argument("--variant", action="append", nargs=3, default=[])
-    args = parser.parse_args()
 
     if len(args.reference) == 3:
         ref = Reference(*args.reference, None)
@@ -315,3 +301,25 @@ if __name__ == "__main__":
         )
 
     sys.stdout.write(config.as_json())
+
+    logger.info("jbrowse config file written to STDOUT.")
+
+
+def argparser():
+    """Argument parser for entrypoint."""
+    # NOTE the alignment and variant file paths are passed through
+    # to the output JSON and do not need to exist to run this script...
+    # HOWEVER the default session must make reference to the first
+    # reference sequence for display, and yet the reference path may
+    # not be the one we wish to appear in the JSON (eg. from a workdir;
+    # plus we cannot rely on reaching into the out_dir), so we get
+    # around this for now by invoking --reference as:
+    #   --reference <path_to_real_ref> \
+    #               <ref_path_in_config> \
+    #               <fai_path_in_config> \
+    #               [gzi_path_in_config]
+    parser = wf_parser("configure_jbrowse")
+    parser.add_argument("--reference", nargs='+', required=True)
+    parser.add_argument("--alignment", nargs=2, action="append", default=[])
+    parser.add_argument("--variant", action="append", nargs=3, default=[])
+    return parser

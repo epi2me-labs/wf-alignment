@@ -1,430 +1,332 @@
+import java.nio.file.NoSuchFileException
+
 import ArgumentParser
 
-process handleSingleFile {
-    label params.process_label
-    cpus 1
-    input:
-        file reads
-    output:
-        path "$reads.simpleName"
-    script:
-        def name = reads.simpleName
-        def reads_dir = 'reads_dir'
-    """
-    mkdir $name
-    mv $reads $name
-    """
-}
-
-
-process checkSampleSheet {
-    label params.process_label
-    cpus 1
-    input:
-        file "sample_sheet.txt"
-    output:
-        file "samples.txt"
-    """
-    check_sample_sheet.py sample_sheet.txt samples.txt
-    """
-}
+EXTENSIONS = [
+    fastq: ["fastq", "fastq.gz", "fq", "fq.gz"],
+    bam: ["bam"],
+    ubam: ["ubam"]
+]
 
 /**
- * Compare number of samples in samplesheet
- * with the number of barcoded dirs found and
- * print warnings
+ * Take a map of input arguments, find valid inputs, and return a channel
+ * with elements of `[metamap, path-to-input-file]`. The file might be a concatenation
+ * of multiple files if the original input was a top-level directory or a directory with
+ * sub-directories which in turn contain input files. Can find either FASTQ, BAM, or
+ * uBAM files.
  *
- *
- * @param number of samples in sample sheet
- * @param number of barcoded directories
- * @return null
+ * @param arguments: map with arguments containing
+ *  - "input": path to either: (i) single input file, (ii) top-level directory
+ *     containing input files, (iii) directory containing sub-directories which contain
+ *     input files
+ *  - "input_type": string of either "fastq", "bam", or "ubam".
+ *  - "sample": string to name a single sample
+ *  - "sample_sheet": path to CSV sample sheet
+ *  - "analyse_unclassified": boolean whether to keep unclassified reads
+ * @return Channel of `[Map(alias, barcode, type, ...), Path]`. The first element is a
+ *  map with metadata and the second is the path to the (potentially concatenated) file.
  */
-
-def compareSampleSheet(int sample_sheet_count, int valid_dir_count)
-{
-
-    if (sample_sheet_count != valid_dir_count) {
-        log.warn """The number of samplesheet entries ({}) does not match the number of barcoded directories ({})""", sample_sheet_count, valid_dir_count
+def ingress(Map arguments) {
+    // check arguments
+    Map margs = parse_arguments(arguments)
+    if (!EXTENSIONS.containsKey(margs["input_type"])) {
+        error "Input type needs to be one of ${EXTENSIONS.keySet()}"
     }
-
-}
-
-/**
- * Take an input file and sample name to return a channel with
- * a single named sample.
- *
- *
- * @param input_file Single file
- * @param sample_name Name to give the sample
- * @return Channel of tuples (path, map(sample_id, type, barcode))
- */
-def handle_single_file(input_file, sample_name)
-{
-    singleFile = Channel.fromPath(input_file)
-    sample = handleSingleFile(singleFile)
-    return sample.map { it -> tuple(it, create_metamap([sample_id:sample_name ?: it.simpleName])) }
-
-}
-
-
-/**
- * Find data using various globs. Wrapper around Nextflow `file`
- * method.
- *
- * @param pattern file object corresponding to top level input folder.
- * @param maxdepth maximum depth to traverse
- * @return list of files.
- */
-
-def find_files(pattern, maxdepth, input_type)
-{
-    files = []
-    def extension_map = ["fastq": ["fastq", "fastq.gz", "fq", "fq.gz"], "bam": ["bam"], "ubam": ["ubam"]]
-    extensions = extension_map[input_type]
-    for (ext in extensions) {
-        files += file(pattern.resolve("*.${ext}"), type: 'file', maxdepth: maxdepth)
-    }
-    return files
-}
-
-
-/**
- * Rework EPI2ME flattened directory structure into standard form
- * files are matched on barcode\d+ and moved into corresponding
- * subdirectories ready for processing.
- *
- * @param input_folder Top-level input directory.
- * @param staging Top-level output_directory.
- * @return A File object representating the staging directory created
- *     under output
- */
-def sanitize_sample(input_folder, staging, input_type)
-{
-    // TODO: this fails if input_folder is an S3 path
-    println("Running sanitization.")
-    println(" - Moving files: ${input_folder} -> ${staging}")
-    staging.mkdirs()
-    files = find_files(input_folder.resolve("**"), 1, input_type)
-    for (sample in files) {
-        fname = sample.getFileName()
-        // find barcode
-        pattern = ~/barcode\d+/
-        matcher = fname =~ pattern
-        if (!matcher.find()) {
-            // not barcoded - leave alone
-            sample.renameTo(staging.resolve(fname))
-        } else {
-            bc_dir = file(staging.resolve(matcher[0]))
-            bc_dir.mkdirs()
-            sample.renameTo(staging.resolve("${matcher[0]}/${fname}"))
+    ArrayList extensions = EXTENSIONS[margs["input_type"]]
+    // Get a channel with valid input data [metamap, input_path]. It will be filled by
+    // the data of the three input types (single file or dir with fastq or subdirs with
+    // fastq).
+    def ch_input = get_valid_inputs(margs, extensions).map {
+        // we could have directories with a single valid file in the input --> "unwrap"
+        // these files so that we only have single files or directories containing
+        // multiple files in the channel
+        meta, path ->
+        if (path.isDirectory()) {
+            List fq_files = get_fq_files_in_dir(path, extensions)
+            if (fq_files.size() == 1) {
+                path = fq_files[0]
+            }
         }
+        [meta, path]
     }
-    println(" - Finished sanitization.")
-    return staging
-}
-
-
-/**
- * Take an input directory return the barcode and non barcode
- * sub directories contained within.
- *
- *
- * @param input_directory Top level input folder to locate sub directories
- * @return A list containing sublists of barcode and non_barcode sub directories
- */
-def get_subdirectories(input_directory)
-{
-    barcode_dirs = file(input_directory.resolve("barcode*"), type: 'dir', maxdepth: 1)
-    all_dirs = file(input_directory.resolve("*"), type: 'dir', maxdepth: 1)
-    non_barcoded = ( all_dirs + barcode_dirs ) - all_dirs.intersect(barcode_dirs)
-    return [barcode_dirs, non_barcoded]
-}
-
-
-/**
- * Load a sample sheet into a Nextflow channel to map barcodes
- * to sample names.
- *
- * @param samples CSV file according to MinKNOW sample sheet specification
- * @return A Nextflow Channel of tuples (barcode, sample name, sample type)
- */
-def get_sample_sheet(sample_sheet)
-{
-    println("Checking sample sheet.")
-    sample_sheet = file(sample_sheet);
-    is_file = sample_sheet.isFile()
-
-    if (!is_file) {
-        println('Error: `--samples` is not a file.')
-        exit 1
-    }
-
-    return checkSampleSheet(sample_sheet)
-        .splitCsv(header: true)
-        .map { row -> tuple(
-            row.barcode,
-            row.sample_id,
-            row.type ? row.type : 'test_sample')
-        }
-}
-
-
-/**
- * Take a list of input directories and return directories which are
- * valid, i.e. contains only .fastq(.gz) files.
- *
- *
- * @param input_dirs List of barcoded directories (barcodeXX,mydir...)
- * @return List of valid directories
- */
-def get_valid_directories(input_dirs, input_type)
-{   
-    valid_dirs = []
-    no_files_dirs = []
-    invalid_files_dirs = []
-    for (d in input_dirs) {
-        valid = true
-        sample_files = find_files(d, 1, input_type)
-        all_files = file(d.resolve("*"), type: 'file', maxdepth: 1)
-        other_files = ( all_files + sample_files ) - all_files.intersect(sample_files)
-
-        if (other_files) {
-            valid = false
-            invalid_files_dirs << d
-        }
-        if (!sample_files) {
-            valid = false
-            no_files_dirs << d
-        }
-        if (valid) {
-            valid_dirs << d
-        }
-    }
-    def extension_map = ["fastq": ["fastq", "fastq.gz", "fq", "fq.gz"], "bam": ["bam"], "ubam": ["ubam"]]
-    extensions = extension_map[input_type]
-    if (valid_dirs.size() == 0) {
-        error_message = "Error: None of the directories given contain $extensions files."
-        println(error_message)
-        exit 1
-    }
-    if (no_files_dirs.size() > 0) {
-        println("Warning: Excluding directories not containing $extensions files:")
-        for (d in no_files_dirs) {
-            println("   - ${d}")
-        }
-    }
-    if (invalid_files_dirs.size() > 0) {
-        println("Warning: Excluding directories containing non $extensions files:")
-        for (d in invalid_files_dirs) {
-            println("   - ${d}")
-        }
-    }
-    return valid_dirs
-}
-
-
-/**
- * Take an input directory and sample name to return a channel
- * with a single named sample.
- *
- *
- * @param input_directory Directory of files
- * @param sample_name Name to give the sample
- * @return Channel of tuples (path, map(sample_id, type, barcode))
- */
-def handle_flat_dir(input_directory, sample_name, input_type)
-{
-    valid_dirs= get_valid_directories([ file(input_directory) ], input_type)
-    return Channel.fromPath(valid_dirs)
-        .map { it -> tuple(it, create_metamap([sample_id:sample_name ?: it.baseName])) }
-
-}
-
-
-/**
- * Take a list of barcode directories and a sample sheet to return
- * a channel of named samples.
- *
- *
- * @param barcoded_dirs List of barcoded directories (barcodeXX,...)
- * @param sample_sheet List of tuples mapping barcode to sample name
- *     or a simple string for non-multiplexed data.
- * @param min_barcode Minimum barcode to accept.
- * @param max_barcode Maximum (inclusive) barcode to accept.
- * @return Channel of tuples (path, map(sample_id, type, barcode))
- */
-def handle_barcoded_dirs(barcoded_dirs, sample_sheet, min_barcode, max_barcode, input_type)
-{
-    valid_dirs = get_valid_directories(barcoded_dirs, input_type)
-    // link sample names to barcode through sample sheet
-    if (!sample_sheet) {
-        sample_sheet = Channel
-            .fromPath(valid_dirs)
-            .filter(~/.*barcode[0-9]{1,3}$/)  // up to 192
-            .filter { barcode_in_range(it, min_barcode, max_barcode) }
-            .map { path -> tuple(path.baseName, path.baseName, 'test_sample')}
+    if (margs.input_type == "fastq") {
+        return fastcat_or_mv(ch_input)
     } else {
-
-        // return warning if there is a discrepancy between the samplesheet and barcode dirs
-
-        // unclassfied will never be in the sample_sheet so remove
-        non_unclassified = valid_dirs
-        non_unclassified -= 'unclassified'
-
-        barcode_dirs_found = non_unclassified.size()
-
-        int count = 0
-
-        // We do this instead of .count() because valid_dirs is a list and
-        // sample_sheet is a channel - the channel is only populated after
-        // checkSampleSheet is complete and so if you compare without
-        // waiting for that then the comparisson fails
-        sample_sheet_entries = sample_sheet.subscribe onNext: { count++ }, onComplete: { compareSampleSheet(count,barcode_dirs_found) }
-
+        // BAM or uBAM
+        return concatBam_or_mv(ch_input, extensions)
     }
+}
 
-    return Channel
-        .fromPath(valid_dirs)
-        .filter(~/.*barcode[0-9]{1,3}$/)  // up to 192
-        .filter { barcode_in_range(it, min_barcode, max_barcode) }
-        .map { path -> tuple(path.baseName, path) }
-        .join(sample_sheet)
-        .map { barcode, path, sample, type -> tuple(path, create_metamap([sample_id:sample, type:type, barcode:barcode])) }
+/**
+ * Process to either (i) run `fastcat` on a directory with FASTQ files or (ii) rename or
+ * compress a single FASTQ file.
+ *
+ * @param: tuple of metadata and path to input directory / file
+ * @return: tuple of metadata and path to concatenated / renamed / gzipped file
+ */
+process fastcat_or_mv {
+    label "wfalignment"
+    cpus params.threads
+    input:
+        tuple val(meta), path(input)
+    output:
+        tuple val(meta), path(out)
+    script:
+        out = "reads.fastq.gz"
+        if (input.isFile()) {
+            // if the file is already gzipped, only rename; otherwise compress
+            if (input.name.endsWith(".gz")) {
+                // we need to take into account that the file could already be named
+                // "reads.fastq.gz" in which case `mv` would fail
+                """
+                [ "$input" == "$out" ] || mv $input $out
+                """
+            } else {
+                """
+                cat $input | pigz -p $task.cpus > $out
+                """
+            }
+        } else if (input.isDirectory()) {
+            """
+            fastcat $input | pigz -p $task.cpus > $out
+            """
+        } else {
+            error "$input is neither file nor directory."
+        }
+}
+
+/**
+ * Process to either (i) concatenate BAM or uBAM files in a directory with
+ * `samtools cat` or (ii) rename a single BAM / uBAM file.
+ *
+ * @param: tuple of metadata and path to input directory / file
+ * @param: List of allowed extensions (e.g. ['bam'])
+ * @return: tuple of metadata and path to concatenated / renamed file
+ */
+process concatBam_or_mv {
+    label "wfalignment"
+    cpus params.threads
+    input:
+        tuple val(meta), path(input)
+        val(extensions)
+    output:
+        tuple val(meta), path(out)
+    script:
+        out = "reads.bam"
+        exts = "{" + extensions.join(",") + "}"
+        if (input.isFile()) {
+            """
+            mv $input $out
+            """
+        } else if (input.isDirectory()) {
+            """
+            samtools cat -o $out ${input}/*.$exts
+            """
+        } else {
+            error "$input is neither file nor directory."
+        }
 }
 
 
 /**
- * Determine if a barcode path is within a required numeric range
+ * Parse input arguments for `fastq_ingress`.
  *
- * @param path barcoded directory (barcodeXX).
- * @param min_barcode Minimum barcode to accept.
- * @param max_barcode Maximum (inclusive) barcode to accept.
+ * @param arguments: map with input arguments (see `fastq_ingress` for details)
+ * @return: map of parsed arguments
  */
-def barcode_in_range(path, min_barcode, max_barcode)
-{
-    pattern = ~/barcode(\d+)/
-    matcher = "${path}" =~ pattern
-    value = matcher[0][1].toInteger()
-    valid = ((value >= min_barcode) && (value <= max_barcode))
-    return valid
-}
-
-
-/**
- * Take a list of non-barcode directories to return a channel
- * of named samples. Samples are named by directory baseName.
- *
- *
- * @param non_barcoded_dirs List of directories (mydir,...)
- * @return Channel of tuples (path, map(sample_id, type, barcode))
- */
-def handle_non_barcoded_dirs(non_barcoded_dirs, input_type)
-{
-    valid_dirs = get_valid_directories(non_barcoded_dirs, input_type)
-    return Channel.fromPath(valid_dirs)
-        .map { path -> tuple(path, create_metamap([sample_id:path.baseName])) }
-}
-
-def create_metamap(Map arguments) {
+Map parse_arguments(Map arguments) {
     def parser = new ArgumentParser(
-        args:["sample_id"],
-        kwargs:[
-            "type": "test_sample",
-            "barcode": null,
-        ],
-        name:"create_metamap",
-    )
+        args:["input", "input_type"],
+        kwargs:["sample": null,
+                "sample_sheet": null,
+                "analyse_unclassified": false,
+                "fastcat_stats": false,
+                "watch_path": false],
+        name: "fastq_ingress")
     return parser.parse_args(arguments)
 }
 
+
 /**
- * Take an input (file or directory) and return a channel of
- * named samples.
+ * Find valid inputs based on the input type.
  *
- * @param input Top level input file or folder to locate sample data.
- * @param sample string to name single sample data.
- * @param sample_sheet Path to sample sheet CSV file.
- * @param sanitize regularize inputs from EPI2ME platform.
- * @param output output location, required if sanitize==true
- * @param min_barcode Minimum barcode to accept.
- * @param max_barcode Maximum (inclusive) barcode to accept.
- * @param input_type File input format. Default: fastq
- *
- * @return Channel of tuples (path, map(sample_id, type, barcode))
+ * @param margs: parsed arguments (see `fastq_ingress` for details)
+ * @return: channel of `[metamap, input-path]`; `input-path` can be the path to
+ *  a single FASTQ file or to a directory containing FASTQ files
  */
-def sample_ingress(Map arguments)
-{
-    def parser = new ArgumentParser(
-        args:["input"],
-        kwargs:[
-            "sample":null, "sample_sheet":null, "sanitize":false, "output":null,
-            "min_barcode":0, "max_barcode":Integer.MAX_VALUE, "input_type":"fastq"],
-        name:"sample_ingress")
-    Map margs = parser.parse_args(arguments)
-
-    if (margs.sanitize && margs.output == null) {
-        throw new Exception("Argument 'output' required if 'sanitize' is true.")
+def get_valid_inputs(Map margs, ArrayList extensions){
+    log.info "Checking fastq input."
+    Path input
+    try {
+        input = file(margs.input, checkIfExists: true)
+    } catch (NoSuchFileException e) {
+        error "Input path $margs.input does not exist."
     }
-
-
-    println("Checking input.")
-    input = file(margs.input)
-
-    // Handle file input
+    boolean dir_has_subdirs = false
+    boolean dir_has_fastq_files = false
+    // declare resulting input channel
+    def ch_input
+    // handle case of `input` being a single file
     if (input.isFile()) {
-        // Assume sample is a string at this point
-        println('Single file input detected.')
-        if (margs.sample_sheet) {
-            println('Warning: `--sample_sheet` given but single file input found. Ignoring.')
-        }
-        return handle_single_file(input, margs.sample)
-    }
-
-    // Handle directory input
-    if (input.isDirectory()) {
-        // EPI2ME harness
-        if (margs.sanitize) {
-            staging = file(margs.output).resolve("staging")
-            input = sanitize_sample(input, staging, margs.input_type)
-        }
-
-        // Get barcoded and non barcoded subdirectories
-        (barcoded, non_barcoded) = get_subdirectories(input)
-
-        // Case 03: If no subdirectories, handle the single dir
-        if (!barcoded && !non_barcoded) {
-            println("Single directory input detected.")
+        // the `fastcat` process can deal with directories or single file inputs
+        ch_input = Channel.of(
+            [create_metamap([alias: margs["sample"] ?: input.simpleName]), input])
+    } else if (input.isDirectory()) {
+        // input is a directory --> we accept two cases: (i) a top-level directory with
+        // fastq files and no sub-directories or (ii) a directory with one layer of
+        // sub-directories containing fastq files
+        dir_has_fastq_files = get_fq_files_in_dir(input, extensions) as boolean
+        // find potential subdirectories (this list can be empty)
+        ArrayList sub_dirs = file(input.resolve("*"), type: "dir")
+        dir_has_subdirs = sub_dirs as boolean
+        // deal with first case (top-lvl dir with fastq files and no sub-directories)
+        if (dir_has_fastq_files){
+            if (dir_has_subdirs) {
+                error "Input directory '$input' cannot contain " +
+                    "${margs["input_type"]} files and sub-directories."
+            }
+            ch_input = Channel.of(
+                [create_metamap([alias: margs["sample"] ?: input.name]), input])
+        } else {
+            // deal with the second case (sub-directories with fastq data) --> first
+            // check whether we actually found sub-directories
+            if (!dir_has_subdirs) {
+                error "Input directory '$input' must contain either " +
+                    "${margs["input_type"]} files or sub-directories."
+            }
+            // make sure that there are no sub-sub-directories with FASTQ files and that
+            // the sub-directories actually contain fastq files)
+            if (sub_dirs.any {
+                def subsubdirs = file(it.resolve("*"), type: "dir")
+                subsubdirs.any { get_fq_files_in_dir(it, extensions) }
+            }) {
+                error "Input directory '$input' cannot contain more than one level " +
+                    "of sub-directories with ${margs["input_type"]} files."
+            }
+            ArrayList sub_dirs_with_fastq_files = sub_dirs.findAll {
+                get_fq_files_in_dir(it, extensions) as boolean
+            }
+            if (!sub_dirs_with_fastq_files) {
+                error "No ${margs["input_type"]} files were found in the " +
+                    "sub-directories of '$input'."
+            }
+            // remove directories called 'unclassified' unless otherwise specified
+            if (!margs.analyse_unclassified) {
+                sub_dirs_with_fastq_files = sub_dirs_with_fastq_files.findAll {
+                    it.name != "unclassified"
+                }
+            }
+            // filter based on sample sheet in case one was provided
             if (margs.sample_sheet) {
-                println('Warning: `--sample_sheet` given but single non-barcode directory found. Ignoring.')
+                // get channel of entries in the sample sheet
+                def ch_sample_sheet = get_sample_sheet(file(margs.sample_sheet))
+                // get the intersection of both channels
+                def ch_intersection = Channel.fromPath(sub_dirs_with_fastq_files).map {
+                    [it.name, it]
+                }.join(ch_sample_sheet.map{[it.barcode, it]}, remainder: false)
+                // TODO: we should let the user know if a sample present in the sample
+                // sheet didn't have a matching sub-directory. We could throw an error
+                // or print a warning, but ideally we would return an extra channel from
+                // `fastq_ingress` with a summary about what has been found (in terms of
+                // sample sheet and sub-dirs) --> we'll do this later
+
+                // put metadata into map and return
+                ch_input = ch_intersection.map {barcode, path, sample_sheet_entry -> [
+                    create_metamap(sample_sheet_entry), path
+                ]}
+            } else {
+                ch_input = Channel.fromPath(sub_dirs_with_fastq_files).map {
+                    [create_metamap([alias: it.name]), it]
+                }
             }
-            return handle_flat_dir(input, margs.sample, margs.input_type)
         }
-
-        if (margs.sample) {
-            println('Warning: `--sample` given but multiple directories found, ignoring.')
-        }
-
-        // Case 01, 02, 04: Handle barcoded and non_barcoded dirs
-        // Handle barcoded folders
-        barcoded_samples = Channel.empty()
-        if (barcoded) {
-            println("Barcoded directories detected.")
-            sample_sheet = null
-            if (margs.sample_sheet) {
-                sample_sheet = get_sample_sheet(margs.sample_sheet)
-            }
-            barcoded_samples = handle_barcoded_dirs(barcoded, sample_sheet, margs.min_barcode, margs.max_barcode, margs.input_type)
-        }
-
-        non_barcoded_samples = Channel.empty()
-        if (non_barcoded) {
-            println("Non barcoded directories detected.")
-            if (!barcoded && margs.sample_sheet) {
-                println('Warning: `--sample_sheet` given but no barcode directories found.')
-            }
-            non_barcoded_samples = handle_non_barcoded_dirs(non_barcoded, margs.input_type)
-        }
-
-        return barcoded_samples.mix(non_barcoded_samples)
+    } else {
+        error "Input $input appears to be neither a file nor a directory."
     }
+    // a sample sheet only makes sense in the case of a directory with
+    // sub-directories
+    if (margs.sample_sheet && !dir_has_subdirs) {
+        error "Sample sheet was provided, but input does not contain " +
+            "sub-directories with ${margs["input_type"]} files."
+    }
+    return ch_input
+}
+
+
+/**
+ * Create a map that contains at least these keys: `[alias, barcode, type]`.
+ * `alias` is required, `barcode` and `type` are filled with default values if
+ * missing. Additional entries are allowed.
+ *
+ * @param kwargs: map with input parameters; must contain `alias`
+ * @return: map(alias, barcode, type, ...)
+ */
+Map create_metamap(Map arguments) {
+    def parser = new ArgumentParser(
+        args: ["alias"],
+        kwargs: [
+            "barcode": null,
+            "type": "test_sample",
+        ],
+        name: "create_metamap",
+    )
+    return parser.parse_known_args(arguments)
+}
+
+
+/**
+ * Get the fastq files in the directory (non-recursive).
+ *
+ * @param dir: path to the target directory
+ * @return: list of found fastq files
+ */
+ArrayList get_fq_files_in_dir(Path dir, ArrayList extensions) {
+    return extensions.collect { file(dir.resolve("*.$it"), type: "file") } .flatten()
+}
+
+
+/**
+ * Check the sample sheet and return a channel with its rows if it is valid.
+ *
+ * @param sample_sheet: path to the sample sheet CSV
+ * @return: channel of maps (with values in sample sheet header as keys)
+ */
+def get_sample_sheet(Path sample_sheet) {
+    // If `validate_sample_sheet` does not return an error message, we can assume that
+    // the sample sheet is valid and parse it. However, because of Nextflow's
+    // asynchronous magic, we might emit values from `.splitCSV()` before the
+    // error-checking closure finishes. This is no big deal, but undesired nonetheless
+    // as the error message might be overwritten by the traces of new nextflow processes
+    // in STDOUT. Thus, we use the somewhat clunky construct with `concat` and `last`
+    // below. This lets the CSV channel only start to emit once the error checking is
+    // done.
+    ch_err = validate_sample_sheet(sample_sheet).map {
+        // check if there was an error message
+        if (it) error "Invalid sample sheet: $it"
+        it
+    }
+    // concat the channel holding the path to the sample sheet to `ch_err` and call
+    // `.last()` to make sure that the error-checking closure above executes before
+    // emitting values from the CSV
+    return ch_err.concat(Channel.fromPath(sample_sheet)).last().splitCsv(
+        header: true, quote: '"'
+    )
+}
+
+
+/**
+ * Python script for validating a sample sheet. The script will write messages
+ * to STDOUT if the sample sheet is invalid. In case there are no issues, no
+ * message is emitted.
+ *
+ * @param: path to sample sheet CSV
+ * @return: string (optional)
+ */
+process validate_sample_sheet {
+    label "wfalignment"
+    input: path csv
+    output: stdout
+    """
+    workflow-glue check_sample_sheet $csv
+    """
 }

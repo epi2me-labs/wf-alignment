@@ -103,10 +103,6 @@
                     "description": "Calculate depth coverage statistics and include in the report.",
                     "help_text": "This step can be a computational bottleneck. Set this to false if your reference sequences are >50mb to speed things up."
                 },
-                "demultiplex": {
-                    "type": "boolean",
-                    "description": "Provide this flag to enable demultiplexing of the data."
-                },
                 "concat_fastq": {
                     "type": "boolean",
                     "default": true,
@@ -177,11 +173,6 @@
         },
         "aws_queue": {
             "type": "string",
-            "hidden": true
-        },
-        "wfversion": {
-            "type": "string",
-            "default": "v0.2.4",
             "hidden": true
         },
         "monochrome_logs": {
