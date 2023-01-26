@@ -37,7 +37,10 @@ The primary outputs of the workflow include:
 
 * A sorted, indexed BAM file containing alignments.
 * A CSV containing various mapping stats.
-* An HTML report with visualisations of the mapping stats.* [nextflow](https://www.nextflow.io/)
+* An HTML report with visualisations of the mapping stats.
+## Useful links
+
+* [nextflow](https://www.nextflow.io/)
 * [docker](https://www.docker.com/products/docker-desktop)
 * [singularity](https://docs.sylabs.io/guides/latest/user-guide/)
 * [minimap2](https://github.com/lh3/minimap2)

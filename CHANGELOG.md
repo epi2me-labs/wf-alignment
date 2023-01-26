@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 `-profile conda` is no longer supported, users should use `-profile standard` (Docker) or `-profile singularity` instead
 
+## [unreleased]
+### Fixed
+- missing header for 'Useful links' in docs
+
 ## [v0.3.0]
 ### Changed
 - uses bamstats instead of mapula
