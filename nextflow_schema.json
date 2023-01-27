@@ -15,7 +15,7 @@
             "properties": {
                 "fastq": {
                     "type": "string",
-                    "format": "dir-path",
+                    "format": "directory-path",
                     "description": "Directory with FASTQ files to use in the analysis.",
                     "help_text": "This accepts one of two cases: (i) the path to a top-level directory containing one or more FASTQ files; (ii) the path to a directory containing one level of sub-directories which in turn contain FASTQ files. In the first case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`."
                 },
@@ -27,19 +27,19 @@
                 },
                 "bam": {
                     "type": "string",
-                    "format": "dir-path",
+                    "format": "directory-path",
                     "description": "Directory with BAM files to use in the analysis.",
                     "help_text": "This accepts one of two cases: (i) the path to a top-level directory containing one or more BAM files; (ii) the path to a directory containing one level of sub-directories which in turn contain BAM files. In the first case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`."
                 },
                 "ubam": {
                     "type": "string",
-                    "format": "dir-path",
+                    "format": "directory-path",
                     "description": "Directory with uBAM files to use in the analysis.",
                     "help_text": "This accepts one of two cases: (i) the path to a top-level directory containing one or more uBAM files; (ii) the path to a directory containing one level of sub-directories which in turn contain uBAM files. In the first case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`."
                 },
                 "references": {
                     "type": "string",
-                    "format": "dir-path",
+                    "format": "directory-path",
                     "description": "Path to a directory containing FASTA reference files.",
                     "help_text": "Accepted file extensions are '.fasta', '.fna', '.ffn', '.faa', '.frn', '.fa', '.txt', '.fa.gz', '.fna.gz', '.frn.gz', '.ffn.gz', '.fasta.gz'."
                 },
