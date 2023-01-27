@@ -7,9 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 `-profile conda` is no longer supported, users should use `-profile standard` (Docker) or `-profile singularity` instead
 
-## [unreleased]
+## [v0.3.1]
 ### Fixed
 - missing header for 'Useful links' in docs
+- description about references in schema (now only mentions an input directory)
 
 ## [v0.3.0]
 ### Changed
