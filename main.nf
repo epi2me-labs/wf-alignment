@@ -26,7 +26,7 @@ process alignReads {
         }
     """
     ${(input_type == "fastq") ? "cat $input" : "samtools fastq -T '*' $input"} \
-    | minimap2 -y -t $task.cpus -ax map-ont $combined_refs - \
+    | minimap2 -t $task.cpus -ax map-ont $combined_refs - \
     | samtools sort -@ $task.cpus -o $bam_name -
     """
 }
