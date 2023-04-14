@@ -1,11 +1,19 @@
 # wf-alignment
 
 
+
+
+
+
 ## Introduction
 
 This workflow provides an easy way to align Oxford Nanopore reads and gather mapping
 stats either locally for small amounts of data or at scale in a distributed
 environment such as a cluster.
+
+
+
+
 ## Quickstart
 
 The workflow uses [nextflow](https://www.nextflow.io/) to manage compute and 
@@ -38,6 +46,10 @@ The primary outputs of the workflow include:
 * A sorted, indexed BAM file containing alignments.
 * A CSV containing various mapping stats.
 * An HTML report with visualisations of the mapping stats.
+
+
+
+
 ## Useful links
 
 * [nextflow](https://www.nextflow.io/)
