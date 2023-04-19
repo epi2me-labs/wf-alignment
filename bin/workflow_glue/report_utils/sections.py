@@ -52,7 +52,7 @@ def histogram_with_mean_and_median(
     return plt
 
 
-def tabs_with_histograms(
+def dropdown_with_histograms(
     data,
     groupby_column,
     data_column,
@@ -76,19 +76,18 @@ def tabs_with_histograms(
     :param sanitizer: `sanitizer.Sanitizer` for sanitizing strings passed to ezcharts
     """
     tabs = Tabs()
-    active = True
-    for name, df in data.groupby(groupby_column, observed=True):
-        name = sanitizer(name)
-        with tabs.add_tab(name, active=active):
-            active = False
-            title = plot_title_func(name)
-            plt = histogram_with_mean_and_median(
-                df[data_column].dropna(),
-                title=sanitizer(title) if title is not None else None,
-                x_axis_name=x_axis_name,
-                y_axis_name=y_axis_name,
-            )
-            EZChart(plt, theme=THEME)
+    with tabs.add_dropdown_menu():
+        for grp_name, df in data.groupby(groupby_column, observed=True):
+            grp_name = sanitizer(grp_name)
+            plot_title = plot_title_func(grp_name)
+            with tabs.add_dropdown_tab(grp_name):
+                plt = histogram_with_mean_and_median(
+                    df[data_column].dropna(),
+                    title=plot_title,
+                    x_axis_name=x_axis_name,
+                    y_axis_name=y_axis_name,
+                )
+                EZChart(plt, theme=THEME)
 
 
 def sub_heading(string):
@@ -222,24 +221,23 @@ def summary(report, sample_names, ref_files, ref_seqs, stats_df, flagstat_df):
         n_reads_total = stats_df.shape[0]
         n_bases_total = stats_df["read_length"].sum()
         tabs = Tabs()
-        active = True
-        for sample_name in [None, *sample_names]:
-            with tabs.add_tab(
-                sample_name if sample_name is not None else "total", active
-            ):
-                active = False
-                if sample_name is None:
-                    # get summary stats for all samples
-                    get_summary_table(
-                        stats_df,
-                        flagstat_df,
-                        len(ref_seqs),
-                        n_reads_total,
-                        n_bases_total,
-                        secondary=False,
-                    )
-                else:
-                    # get summary stats for individual sample
+        # one tab for summary stats of all samples combined; one tab with dropdown per
+        # sample (if we only got a single sample, the second tab won't be a dropdown
+        # menu but rather a regular tab)
+        with tabs.add_tab("total"):
+            # summary table for all samples
+            get_summary_table(
+                stats_df,
+                flagstat_df,
+                len(ref_seqs),
+                n_reads_total,
+                n_bases_total,
+                secondary=False,
+            )
+        with tabs.add_dropdown_menu(title="per sample"):
+            for sample_name in sample_names:
+                with tabs.add_dropdown_tab(sample_name):
+                    # summary table for an individual sample
                     get_summary_table(
                         stats_df.query(f"sample_name == '{sample_name}'"),
                         flagstat_df.query(f"sample_name == '{sample_name}'"),
@@ -252,26 +250,27 @@ def summary(report, sample_names, ref_files, ref_seqs, stats_df, flagstat_df):
         # fastcat / bamstats summary
         sub_heading("Reads Summary")
         tabs = Tabs()
-        active = True
-        for sample_name, sample_df in stats_df.groupby("sample_name", observed=True):
-            with tabs.add_tab(sample_name, active):
-                active = False
-                with Grid():
-                    # read length plot
-                    max_read_length_to_show = (
-                        (sample_df["read_length"] / 1000)
-                        .quantile(0.99, interpolation="lower")
-                        .round()
-                    )
-                    plt = fastcat.read_length_plot(sample_df)
-                    plt.xAxis.max = max_read_length_to_show
-                    EZChart(plt, theme=THEME)
-                    # base yield plot
-                    plt = fastcat.base_yield_plot(sample_df)
-                    # the base yield plot has kb as x-axis unit
-                    plt.xAxis.max = max_read_length_to_show
-                    plt.tooltip = None
-                    EZChart(plt, theme=THEME)
+        with tabs.add_dropdown_menu():
+            for sample_name, sample_df in stats_df.groupby(
+                "sample_name", observed=True
+            ):
+                with tabs.add_dropdown_tab(sample_name):
+                    with Grid():
+                        # read length plot
+                        max_read_length_to_show = (
+                            (sample_df["read_length"] / 1000)
+                            .quantile(0.99, interpolation="lower")
+                            .round()
+                        )
+                        plt = fastcat.read_length_plot(sample_df)
+                        plt.xAxis.max = max_read_length_to_show
+                        EZChart(plt, theme=THEME)
+                        # base yield plot
+                        plt = fastcat.base_yield_plot(sample_df)
+                        # the base yield plot has kb as x-axis unit
+                        plt.xAxis.max = max_read_length_to_show
+                        plt.tooltip = None
+                        EZChart(plt, theme=THEME)
 
 
 def quality(report, stats_df, sanitizer):
@@ -286,7 +285,7 @@ def quality(report, stats_df, sanitizer):
             # quality per sample
             with dom_tags.div():
                 sub_heading("Per sample:")
-                tabs_with_histograms(
+                dropdown_with_histograms(
                     data=stats_df,
                     groupby_column="sample_name",
                     data_column="mean_quality",
@@ -298,7 +297,7 @@ def quality(report, stats_df, sanitizer):
             # quality per ref file
             with dom_tags.div():
                 sub_heading("Per ref.file:")
-                tabs_with_histograms(
+                dropdown_with_histograms(
                     data=stats_df,
                     groupby_column="ref_file",
                     data_column="mean_quality",
@@ -322,7 +321,7 @@ def accuracy(report, stats_df_mapped, sanitizer):
             # accuracy per sample
             with dom_tags.div():
                 sub_heading("Per sample:")
-                tabs_with_histograms(
+                dropdown_with_histograms(
                     data=stats_df_mapped,
                     groupby_column="sample_name",
                     data_column="acc",
@@ -334,7 +333,7 @@ def accuracy(report, stats_df_mapped, sanitizer):
             # accuracy per ref file
             with dom_tags.div():
                 sub_heading("Per ref.file:")
-                tabs_with_histograms(
+                dropdown_with_histograms(
                     data=stats_df_mapped,
                     groupby_column="ref_file",
                     data_column="acc",
@@ -367,7 +366,7 @@ def read_coverage(report, stats_df_mapped, sanitizer):
             with dom_tags.div():
                 # coverage per sample
                 sub_heading("Per sample:")
-                tabs_with_histograms(
+                dropdown_with_histograms(
                     data=stats_df_mapped,
                     groupby_column="sample_name",
                     data_column="coverage",
@@ -379,7 +378,7 @@ def read_coverage(report, stats_df_mapped, sanitizer):
             with dom_tags.div():
                 sub_heading("Per ref.file:")
                 # coverage per ref (not per ref file)
-                tabs_with_histograms(
+                dropdown_with_histograms(
                     data=stats_df_mapped,
                     groupby_column="ref_file",
                     data_column="coverage",
@@ -413,7 +412,7 @@ def ref_coverage(report, stats_df_mapped, sanitizer):
             for ref_file, df in stats_df_mapped.groupby("ref_file", observed=True):
                 with dom_tags.div():
                     sub_heading(f"Reference file '{ref_file}':")
-                    tabs_with_histograms(
+                    dropdown_with_histograms(
                         data=df,
                         groupby_column="ref",
                         data_column="ref_coverage",
@@ -471,53 +470,56 @@ def depths(report, depth_df):
             """
         )
         tabs = Tabs()
-        active = True
-        for ref_file, df_ref_file in depth_df.groupby("ref_file"):
-            # prepare data for depth vs coordinate plot
-            df_depth_vs_coords = (
-                df_ref_file.eval("mean_pos = (start + end) / 2")
-                .eval("step = end - start")
-                .reset_index()
-            )
-            ref_lengths = df_depth_vs_coords.groupby("ref", observed=True)["end"].last()
-            total_ref_starts = ref_lengths.cumsum().shift(1, fill_value=0)
-            df_depth_vs_coords["total_mean_pos"] = df_depth_vs_coords.groupby(
-                "ref", observed=True, group_keys=False
-            )["mean_pos"].apply(lambda s: s + total_ref_starts[s.name])
-            # prepare data for cumulative depth plot
-            df_cumul_depth = get_relative_cumulative_depths(df_ref_file)
-            with tabs.add_tab(ref_file, active):
-                active = False
-                # depth vs genomic coordinate plot on the left and cumulative depth
-                # plot on the right
-                with Grid():
-                    # TODO: maybe smooth this line a bit
-                    plt = ezc.lineplot(
-                        data=df_depth_vs_coords.round(2),
-                        x="total_mean_pos",
-                        y="depth",
-                        hue="sample_name",
-                    )
-                    plt.title = {"text": "Coverage along reference"}
-                    plt.xAxis.name = "Position along reference"
-                    plt.yAxis.name = "Sequencing depth"
-                    for s in plt.series:
-                        s.showSymbol = False
-                    EZChart(plt, theme=THEME)
-                    # now the cumulative depth plot
-                    plt = ezc.lineplot(
-                        data=df_cumul_depth.round(2),
-                        x="depth",
-                        y="ref_percentage",
-                        hue="sample_name",
-                    )
-                    plt.xAxis.scale = True
-                    plt.title = {"text": "Cumulative coverage"}
-                    plt.xAxis.name = "Sequencing depth"
-                    plt.yAxis.name = "Percentage of reference"
-                    for s in plt.series:
-                        s.showSymbol = False
-                    EZChart(plt, theme=THEME)
+        with tabs.add_dropdown_menu():
+            for ref_file, df_ref_file in depth_df.groupby("ref_file"):
+                # prepare data for depth vs coordinate plot
+                df_depth_vs_coords = (
+                    df_ref_file.eval("mean_pos = (start + end) / 2")
+                    .eval("step = end - start")
+                    .reset_index()
+                )
+                ref_lengths = df_depth_vs_coords.groupby("ref", observed=True)[
+                    "end"
+                ].last()
+                total_ref_starts = ref_lengths.cumsum().shift(1, fill_value=0)
+                df_depth_vs_coords["total_mean_pos"] = df_depth_vs_coords.groupby(
+                    "ref", observed=True, group_keys=False
+                )["mean_pos"].apply(lambda s: s + total_ref_starts[s.name])
+                # prepare data for cumulative depth plot
+                df_cumul_depth = get_relative_cumulative_depths(df_ref_file)
+                with tabs.add_dropdown_tab(ref_file):
+                    # depth vs genomic coordinate plot on the left and cumulative depth
+                    # plot on the right
+                    with Grid():
+                        # TODO: maybe smooth this line a bit
+                        plt = ezc.lineplot(
+                            data=df_depth_vs_coords.round(2),
+                            x="total_mean_pos",
+                            y="depth",
+                            hue="sample_name",
+                        )
+                        plt.title = {"text": "Coverage along reference"}
+                        plt.xAxis.name = "Position along reference"
+                        plt.yAxis.name = "Sequencing depth"
+                        for s in plt.series:
+                            s.showSymbol = False
+                        plt.tooltip = {"trigger": "item"}
+                        EZChart(plt, theme=THEME)
+                        # now the cumulative depth plot
+                        plt = ezc.lineplot(
+                            data=df_cumul_depth.round(2),
+                            x="depth",
+                            y="ref_percentage",
+                            hue="sample_name",
+                        )
+                        plt.xAxis.scale = True
+                        plt.title = {"text": "Cumulative coverage"}
+                        plt.xAxis.name = "Sequencing depth"
+                        plt.yAxis.name = "Percentage of reference"
+                        for s in plt.series:
+                            s.showSymbol = False
+                        plt.tooltip = {"trigger": "item"}
+                        EZChart(plt, theme=THEME)
 
 
 def counts(report, flagstat_df, counts, sanitizer):
@@ -551,46 +553,48 @@ def counts(report, flagstat_df, counts, sanitizer):
         ):
             sub_heading(f"Reference file '{ref_file}':")
             tabs = Tabs()
-            active = True
-            for sample_name, sample_df in ref_file_df.groupby(
-                "sample_name", observed=True
-            ):
-                n_detected_refs = (sample_df["obs"] > 0).sum()
-                log_counts_df = np.log10(sample_df[["exp", "obs"]] + 1)
-                spear_r, spear_p = stats.spearmanr(
-                    log_counts_df["exp"], log_counts_df["obs"]
-                )
-                pears_r, pears_p = stats.pearsonr(
-                    log_counts_df["exp"], log_counts_df["obs"]
-                )
-                with tabs.add_tab(sample_name, active):
-                    active = False
-                    plt = ezc.scatterplot(data=log_counts_df.round(2), x="exp", y="obs")
-                    plt.title = {
-                        "text": "Expected vs. observed counts",
-                        "subtext": sanitizer(
-                            f"Spearman's: {spear_r:.2f} (p={spear_p:.1e}); "
-                            f"Pearson's: {pears_r:.2f} (p={pears_p:.1e}); "
-                            f"detected refs: {n_detected_refs} / {sample_df.shape[0]}"
-                        ),
-                    }
-                    plt.xAxis.name = "log10 of expected counts"
-                    plt.yAxis.name = "log10 of observed counts"
-                    plt.xAxis.scale = True
-                    plt.yAxis.scale = True
-
-                    # add ref IDs as tooltips
-                    plt.dataset[0].source = (
-                        log_counts_df.reset_index()
-                        .eval("hue = None")[["exp", "obs", "hue", "ref"]]
-                        .values
+            with tabs.add_dropdown_menu():
+                for sample_name, sample_df in ref_file_df.groupby(
+                    "sample_name", observed=True
+                ):
+                    n_detected_refs = (sample_df["obs"] > 0).sum()
+                    log_counts_df = np.log10(sample_df[["exp", "obs"]] + 1)
+                    spear_r, spear_p = stats.spearmanr(
+                        log_counts_df["exp"], log_counts_df["obs"]
                     )
-                    plt.dataset[0].dimensions = ["x", "y", "hue", "tooltip"]
-                    plt.series[0].encode["tooltip"] = "tooltip"
-                    plt.tooltip = {"trigger": "item"}
+                    pears_r, pears_p = stats.pearsonr(
+                        log_counts_df["exp"], log_counts_df["obs"]
+                    )
+                    with tabs.add_dropdown_tab(sample_name):
+                        plt = ezc.scatterplot(
+                            data=log_counts_df.round(2), x="exp", y="obs"
+                        )
+                        plt.title = {
+                            "text": "Expected vs. observed counts",
+                            "subtext": sanitizer(
+                                f"Spearman's: {spear_r:.2f} (p={spear_p:.1e}); "
+                                f"Pearson's: {pears_r:.2f} (p={pears_p:.1e}); "
+                                "detected refs: "
+                                f"{n_detected_refs} / {sample_df.shape[0]}"
+                            ),
+                        }
+                        plt.xAxis.name = "log10 of expected counts"
+                        plt.yAxis.name = "log10 of observed counts"
+                        plt.xAxis.scale = True
+                        plt.yAxis.scale = True
 
-                    EZChart(plt, theme=THEME)
-                    no_plot_generated = False
+                        # add ref IDs as tooltips
+                        plt.dataset[0].source = (
+                            log_counts_df.reset_index()
+                            .eval("hue = None")[["exp", "obs", "hue", "ref"]]
+                            .values
+                        )
+                        plt.dataset[0].dimensions = ["x", "y", "hue", "tooltip"]
+                        plt.series[0].encode["tooltip"] = "tooltip"
+                        plt.tooltip = {"trigger": "item"}
+
+                        EZChart(plt, theme=THEME)
+                        no_plot_generated = False
         if no_plot_generated:
             dom_tags.p(
                 """
