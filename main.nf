@@ -161,13 +161,14 @@ process getVersions {
     script:
     """
     python --version | tr -s ' ' ',' | tr '[:upper:]' '[:lower:]' > versions.txt
+    seqkit version | sed 's/ /,/' >> versions.txt
     minimap2 --version | sed 's/^/minimap2,/' >> versions.txt
     samtools --version | (head -n 1 && exit 0) | sed 's/ /,/' >> versions.txt
     fastcat --version | sed 's/^/fastcat,/' >> versions.txt
     mosdepth --version | sed 's/ /,/' >> versions.txt
     ezcharts --version | sed 's/ /,/' >> versions.txt
-    python -c "import pysam; print(pysam.__version__)" | sed 's/^/pysam,/'  >> versions.txt
-    pigz --version | tr -s ' ' ',' >> versions
+    python -c "import pysam; print(f'pysam,{pysam.__version__}')" >> versions.txt
+    bgzip --version | head -n1 | sed -E 's/(.*) /\\1,/' >> versions.txt
     """
 }
 

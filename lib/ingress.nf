@@ -66,13 +66,14 @@ def ingress(Map arguments) {
  */
 process fastcat_or_mv {
     label "wfalignment"
-    cpus params.threads
+    cpus Math.min(params.threads, 3)
     input:
         tuple val(meta), path(input)
     output:
         tuple val(meta), path(out)
     script:
         out = "reads.fastq.gz"
+        int bgzip_threads = task.cpus == 1 ? 1 : task.cpus - 1
         if (input.isFile()) {
             // if the file is already gzipped, only rename; otherwise compress
             if (input.name.endsWith(".gz")) {
@@ -83,12 +84,12 @@ process fastcat_or_mv {
                 """
             } else {
                 """
-                cat $input | pigz -p $task.cpus > $out
+                cat $input | bgzip -@ $task.cpus > $out
                 """
             }
         } else if (input.isDirectory()) {
             """
-            fastcat $input | pigz -p $task.cpus > $out
+            fastcat $input | bgzip -@ $task.cpus > $out
             """
         } else {
             error "$input is neither file nor directory."

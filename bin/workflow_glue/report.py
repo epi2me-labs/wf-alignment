@@ -104,8 +104,6 @@ def argparser():
         help=(
             "CSV file with expected counts "
             "(columns: Reference, expected_count, expected_length)"
-            # TODO: check if the old workflow / mapula actually did anything with the
-            # expected length
         ),
     )
     parser.add_argument(
