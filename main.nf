@@ -134,11 +134,13 @@ process makeReport {
     output:
         path "*.html"
     script:
-    String depth_args = \
-        // we need `.baseName` here because Nextflow includes the staging directory in
-        // the `.name` of a path
-        (depths.baseName == OPTIONAL_FILE.name) ? "" : "--depths_dir depths"
-    String counts_args = (counts == OPTIONAL_FILE) ? "" : "--counts $counts"
+    String depth_args = "--depths_dir depths"
+    // we need to check against `.baseName` here because Nextflow includes the staging
+    // directory in the `.name` of a `TaskPath`
+    if (!(depths instanceof List) && depths.baseName == OPTIONAL_FILE.name) {
+        depth_args = ""
+    }
+    String counts_args = (counts.name == OPTIONAL_FILE.name) ? "" : "--counts $counts"
     """
     workflow-glue report \
         --name wf-alignment \
