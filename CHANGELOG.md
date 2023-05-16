@@ -17,8 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Now uses ONT Public License.
 - Report now uses dropdown menus instead of tabs.
 
-## [fixed]
-* Missing `seqkit` in `getVersions`process.
+### Fixed
+- Missing `seqkit` in `getVersions`process.
 
 ## [v0.3.3]
 ### Removed
