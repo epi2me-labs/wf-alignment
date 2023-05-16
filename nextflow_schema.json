@@ -4,6 +4,7 @@
     "title": "epi2me-labs/wf-alignment",
     "description": "Align Nanopore reads and visualize mapping statistics.",
     "demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-alignment/wf-alignment-demo.tar.gz",
+    "aws_demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-alignment/wf-alignment-demo/aws.nextflow.config",
     "url": "https://github.com/epi2me-labs/wf-alignment",
     "type": "object",
     "definitions": {

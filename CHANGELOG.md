@@ -1,8 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [v0.3.6]
+### Added
+- Configuration for running demo data in AWS
 
 ## [v0.3.5]
 ### Fixed
@@ -12,7 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Now uses ONT Public License.
 - Report now uses dropdown menus instead of tabs.
-## Fixed
+
+### Fixed
 - Missing `seqkit` in `getVersions`process.
 
 ## [v0.3.3]
@@ -32,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - uses bamstats instead of mapula
 - uses ezcharts for report
+
 ### Removed
 - legacy option 'demultiplex'
 
@@ -55,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v0.2.0]
 ### Added
 - Workflow will now output a JBrowse2 `jbrowse.json` configuration
+
 ### Changed
 - Output combined reference file to `out_dir`
 - `-profile conda` is no longer supported, users should use `-profile standard` (Docker) or `-profile singularity` instead
@@ -64,14 +71,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v0.1.9]
 ### Added
 - Input params and handling for bam and ubam formats
+
 ### Updated
 - Bumped base container to v0.2.0
 
 ## [v0.1.8]
 ### Changed
 - Fastqingress metadata map
+
 ### Fixed
 - Set out_dir option type to ensure output is written to correct directory on Windows.
+
 ### Added
 - Argument Parser for fastqingress.
 
@@ -86,12 +96,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v0.1.5]
 ### Added
 - concat_fastq boolean parameter
+
 ### Changed
 - Better help text on cli
 
 ## [v0.1.4]
 ### Fixed
 - Mosdepth 0 step
+
 ### Added
 - Depth coverage steps parameters
 
@@ -114,6 +126,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - run_id in mapula output json.
 - Only accept certain format files as references.
 - reduce storage required for workspace.
+
 ### Added.
 - Handling for no alignments.
 - Integration with EPI2ME Labs notebook environment.
@@ -123,8 +136,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Error message if no references in directory provided.
 - Singularity profile.
 - Ping telemetry file.
+
 ### Fixed
 - Calculate depth coverage graph steps based on length of reference.
+
 ### Changed
 - Sample name to sample id
 
@@ -133,6 +148,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Option to add suffix to HTML report name.
 - Unmapped QC statistics
 - Depth coverage graph per reference
+
 ### Changed
 - Help message now uses JSON schema
 - Updated fastqingress
@@ -155,12 +171,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Make prefix optional
 
-
 ## [v0.0.3]
 ### Added
 - Barcode awarenesss support with --demultiplex flag (requires guppy_barcoder to be installed)
 - Output naming via new required --prefix argument
-
 
 ## [v0.0.2]
 ### Changed
@@ -168,8 +182,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make docker executor default.
 
 ## [v0.0.1]
-
-Initial release
+- Initial release
 
 ### Added
 - Basic running of alignment workflow and reporting
+
