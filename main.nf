@@ -8,6 +8,10 @@ include { process_references } from "./subworkflows/process_references"
 
 
 OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
+MINIMAP_ARGS_PRESETS = [
+    "dna": "-ax map-ont",
+    "rna": "-ax splice -uf"
+]
 
 process alignReads {
     label "wfalignment"
@@ -16,6 +20,7 @@ process alignReads {
         tuple val(meta), path(input)
         path combined_refs
         val input_type
+        val minimap_args
     output:
         tuple val(meta), path(bam_name)
     script:
@@ -26,7 +31,7 @@ process alignReads {
         }
     """
     ${(input_type == "fastq") ? "cat $input" : "samtools fastq -T '*' $input"} \
-    | minimap2 -t $task.cpus -ax map-ont $combined_refs - \
+    | minimap2 -t $task.cpus $minimap_args $combined_refs - \
     | samtools sort -@ $task.cpus -o $bam_name -
     """
 }
@@ -206,8 +211,16 @@ workflow pipeline {
         refs = process_references(params.references)
 
         def bam
+        String minimap_args
         if (input_type in ["fastq", "ubam"]) {
-            bam = alignReads(sample_data, refs.combined, input_type)
+            // run minimap
+            if (! MINIMAP_ARGS_PRESETS.containsKey(params.minimap_preset)) {
+                error "'--minimap_preset' needs to be one of " +
+                    "${MINIMAP_ARGS_PRESETS.keySet()}."
+            }
+            minimap_args = params.minimap_args ?: \
+                MINIMAP_ARGS_PRESETS[params.minimap_preset]
+            bam = alignReads(sample_data, refs.combined, input_type, minimap_args)
         } else {
             // input is bam
             bam = sortInputBam(sample_data)

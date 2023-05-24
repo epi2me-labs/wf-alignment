@@ -110,6 +110,21 @@
                     "default": true,
                     "description": "Use fastcat to concatenate input FASTQ files.",
                     "help_text": "Set this to false to skip the concatenation step which can take some time, this also assumes your FASTQ headers are in the format output my MinKNOW."
+                },
+                "minimap_preset": {
+                    "type": "string",
+                    "description": "Pre-defined parameter sets for `minimap2`, covering most common use cases.",
+                    "help_text": "Available parameter sets are: 'dna' (`-ax map-ont`), 'rna' (`-ax splice -uf`).",
+                    "enum": [
+                        "dna",
+                        "rna"
+                    ],
+                    "default": "dna"
+                },
+                "minimap_args": {
+                    "type": "string",
+                    "description": "String of command line arguments to be passed on to `minimap2`.",
+                    "help_text": "This overrides the options defined by `--minimap_preset` and allows for running the alignment step in a more customized way."
                 }
             }
         },
