@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.0]
+### Added
+- Parameters `--minimap_args` and `--minimap_preset` to expose additional `minimap2` options to the user.
+    - For RNA data sets, `--minimap_preset` can be set to `'rna'` to automatically configure the workflow accordingly (`'dna'` is the default preset).
+    - Advanced users can provide `--minimap_args` to pass additional overriding arguments to `minimap2`
+
 ## [v0.3.6]
 ### Added
 - Configuration for running demo data in AWS
