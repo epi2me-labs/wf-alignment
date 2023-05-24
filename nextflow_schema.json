@@ -128,18 +128,34 @@
                 }
             }
         },
+        "multiprocessing_options": {
+            "title": "Multiprocessing Options",
+            "type": "object",
+            "fa_icon": "far fa-gauge-high",
+            "description": "Options for configuring the compute resources for several processes in the workflow.",
+            "properties": {
+                "mapping_threads": {
+                    "type": "integer",
+                    "default": 2,
+                    "minimum": 1,
+                    "description": "Number of CPU threads to use for the alignment step.",
+                    "help_text": "`minimap2` will be run with this many threads. The total number of threads used by the alignment process is the sum of this parameter and `sorting_threads`."
+                },
+                "sorting_threads": {
+                    "type": "integer",
+                    "default": 2,
+                    "minimum": 1,
+                    "description": "Number of CPU threads to use for sorting.",
+                    "help_text": "The alignments created by `minimap2` will be sorted with this many threads. The total number of threads used by the alignment process is the sum of this parameter and `mapping_threads`."
+                }
+            }
+        },
         "misc": {
             "title": "Miscellaneous Options",
             "type": "object",
             "description": "Everything else.",
             "default": "",
             "properties": {
-                "threads": {
-                    "type": "integer",
-                    "default": 4,
-                    "description": "Maximum number of CPU threads to use per workflow task.",
-                    "help_text": "Several tasks in this workflow benefit from using multiple CPU threads. This option sets the number of CPU threads for all such processes. The total CPU resources used by the workflow are constrained by the executor configuration in `nextflow.config`."
-                },
                 "disable_ping": {
                     "type": "boolean",
                     "default": false,
@@ -172,6 +188,9 @@
         },
         {
             "$ref": "#/definitions/advanced_options"
+        },
+        {
+            "$ref": "#/definitions/multiprocessing_options"
         },
         {
             "$ref": "#/definitions/misc"
