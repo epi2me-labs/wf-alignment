@@ -15,7 +15,7 @@ MINIMAP_ARGS_PRESETS = [
 
 process alignReads {
     label "wfalignment"
-    cpus params.threads
+    cpus params.mapping_threads + params.sorting_threads
     input:
         tuple val(meta), path(input)
         path combined_refs
@@ -31,14 +31,14 @@ process alignReads {
         }
     """
     ${(input_type == "fastq") ? "cat $input" : "samtools fastq -T '*' $input"} \
-    | minimap2 -t $task.cpus $minimap_args $combined_refs - \
-    | samtools sort -@ $task.cpus -o $bam_name -
+    | minimap2 -t $params.mapping_threads $minimap_args $combined_refs - \
+    | samtools sort -@ ${params.sorting_threads - 1} -o $bam_name -
     """
 }
 
 process sortInputBam {
     label "wfalignment"
-    cpus params.threads
+    cpus params.sorting_threads
     input:
         tuple val(meta), path(bam)
     output:
@@ -66,7 +66,7 @@ process indexBam {
 
 process bamstats {
     label "wfalignment"
-    cpus params.threads
+    cpus 2
     input:
         tuple val(meta), path(bam), path(index)
     output:
@@ -75,7 +75,7 @@ process bamstats {
     script:
         def sample_name = meta["alias"]
     """
-    bamstats $bam -s $sample_name -u -f ${sample_name}.flagstat.tsv \
+    bamstats $bam -s $sample_name -u -f ${sample_name}.flagstat.tsv -t $task.cpus \
     > ${sample_name}.readstats.tsv
     """
 }
@@ -99,11 +99,10 @@ process addStepsColumn {
 
 process readDepthPerRef {
     // TODO: check if parallelisation with `xargs` or `parallel` is more efficient
-    depth_threads = {params.threads >= 4  ? 4 : params.threads}
     label "wfalignment"
-    cpus depth_threads
+    cpus 3
     input:
-        tuple val(meta), path(alignment)
+        tuple val(meta), path(alignment), path(index)
         path ref_len
     output:
         path outfname
@@ -111,7 +110,6 @@ process readDepthPerRef {
         def sample_name = meta["alias"]
         outfname = "${sample_name}.all_regions.bed.gz"
     """
-    samtools index $alignment
     while IFS=, read -r name lengths steps; do
         mosdepth -n --fast-mode --by "\$steps" --chrom "\$name" -t $task.cpus \
             ${sample_name}."\$name".temp $alignment \
@@ -127,7 +125,7 @@ process readDepthPerRef {
 
 process makeReport {
     label "wfalignment"
-    cpus params.threads
+    cpus 1
     input:
         path "readstats/*"
         path "flagstat/*"
@@ -237,9 +235,7 @@ workflow pipeline {
         if (depth_coverage) {
             // add step column to ref lengths
             ref_lengths_with_steps = addStepsColumn(refs.lengths_combined)
-            depth_per_ref = readDepthPerRef(
-                bam.map { it[0..1] }, ref_lengths_with_steps
-            )
+            depth_per_ref = readDepthPerRef(bam, ref_lengths_with_steps)
         }
 
         report = makeReport(
