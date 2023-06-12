@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.0]
+### Changed
+- Bumped minimum required Nextflow version to 22.10.8.
+- Enum choices are enumerated in the `--help` output.
+- Enum choices are enumerated as part of the error message when a user has selected an invalid choice.
+
 ## [v0.4.1]
 ### Fixed
 - Workflow aborting on `fastcat_or_mv` process.
@@ -15,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `--sorting_threads` controls the number of threads used to sort the aligned reads.
     - The total number of threads used by the alignment process is the sum of the two values.
     - Other processes use a hard-coded number of threads ranging between 1 and 3.
+
 ### Added
 - Parameters `--minimap_args` and `--minimap_preset` to expose additional `minimap2` options to the user.
     - For RNA data sets, `--minimap_preset` can be set to `'rna'` to automatically configure the workflow accordingly (`'dna'` is the default preset).
@@ -198,7 +205,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make docker executor default.
 
 ## [v0.0.1]
-- Initial release
+* Initial release
 
 ### Added
 - Basic running of alignment workflow and reporting
