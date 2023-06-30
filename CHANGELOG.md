@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Changed
 - Updated GitHub issue templates to force capture of more information.
+- Example command to use demo data.
 
 ## [v0.5.0]
 ### Changed
@@ -213,4 +214,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Basic running of alignment workflow and reporting
-
