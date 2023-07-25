@@ -503,7 +503,7 @@ def depths(report, depth_df):
                         plt.yAxis.name = "Sequencing depth"
                         for s in plt.series:
                             s.showSymbol = False
-                        plt.tooltip = {"trigger": "item"}
+                        plt.tooltip = {"trigger": "axis"}
                         EZChart(plt, theme=THEME)
                         # now the cumulative depth plot
                         plt = ezc.lineplot(
@@ -518,7 +518,7 @@ def depths(report, depth_df):
                         plt.yAxis.name = "Percentage of reference"
                         for s in plt.series:
                             s.showSymbol = False
-                        plt.tooltip = {"trigger": "item"}
+                        plt.tooltip = {"trigger": "axis"}
                         EZChart(plt, theme=THEME)
 
 
