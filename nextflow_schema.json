@@ -17,26 +17,30 @@
                 "fastq": {
                     "type": "string",
                     "format": "directory-path",
+                    "title": "FASTQ",
                     "description": "Directory with FASTQ files to use in the analysis.",
                     "help_text": "This accepts one of two cases: (i) the path to a top-level directory containing one or more FASTQ files; (ii) the path to a directory containing one level of sub-directories which in turn contain FASTQ files. In the first case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`."
-                },
-                "analyse_unclassified": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory.",
-                    "help_text": "If selected and if the input is a multiplex directory the workflow will also process the unclassified directory."
                 },
                 "bam": {
                     "type": "string",
                     "format": "directory-path",
+                    "title": "BAM",
                     "description": "Directory with BAM files to use in the analysis.",
                     "help_text": "This accepts one of two cases: (i) the path to a top-level directory containing one or more BAM files; (ii) the path to a directory containing one level of sub-directories which in turn contain BAM files. In the first case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`."
                 },
                 "ubam": {
                     "type": "string",
                     "format": "directory-path",
+                    "title": "uBAM",
                     "description": "Directory with uBAM files to use in the analysis.",
                     "help_text": "This accepts one of two cases: (i) the path to a top-level directory containing one or more uBAM files; (ii) the path to a directory containing one level of sub-directories which in turn contain uBAM files. In the first case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`."
+                },
+                "analyse_unclassified": {
+                    "type": "boolean",
+                    "default": false,
+                    "title": "Analyse unclassified reads",
+                    "description": "Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory.",
+                    "help_text": "If selected and if the input is a multiplex directory the workflow will also process the unclassified directory."
                 },
                 "references": {
                     "type": "string",
@@ -51,8 +55,31 @@
                     "help_text": "The expected counts CSV file must contain columns named 'reference' and 'expected_counts' in order to be valid. the 'reference' column should contain names matching the names of reference sequences within the fasta files provided using --references."
                 }
             },
-            "required": [
-                "references"
+            "allOf": [
+                {
+                    "required": [
+                        "references"
+                    ]
+                },
+                {
+                    "oneOf": [
+                        {
+                            "required": [
+                                "fastq"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "bam"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "ubam"
+                            ]
+                        }
+                    ]
+                }
             ]
         },
         "samples": {
@@ -87,8 +114,9 @@
                 },
                 "prefix": {
                     "type": "string",
+                    "title": "Output filename prefix",
                     "description": "Optional prefix attached to each of the output filenames.",
-                    "help_text": "Output filename format will be `<prefix->filename.ext`."
+                    "help_text": "Output filename format will be `<prefix>-filename.ext`."
                 }
             }
         },
@@ -105,14 +133,9 @@
                     "description": "Calculate depth coverage statistics and include in the report.",
                     "help_text": "This step can be a computational bottleneck. Set this to false if your reference sequences are >50mb to speed things up."
                 },
-                "concat_fastq": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Use fastcat to concatenate input FASTQ files.",
-                    "help_text": "Set this to false to skip the concatenation step which can take some time, this also assumes your FASTQ headers are in the format output my MinKNOW."
-                },
                 "minimap_preset": {
                     "type": "string",
+                    "title": "Minimap2 parameter preset",
                     "description": "Pre-defined parameter sets for `minimap2`, covering most common use cases.",
                     "help_text": "Available parameter sets are: 'dna' (`-ax map-ont`), 'rna' (`-ax splice -uf`).",
                     "enum": [
@@ -123,6 +146,7 @@
                 },
                 "minimap_args": {
                     "type": "string",
+                    "title": "Minimap2 CLI arguments",
                     "description": "String of command line arguments to be passed on to `minimap2`.",
                     "help_text": "This overrides the options defined by `--minimap_preset` and allows for running the alignment step in a more customized way."
                 }
