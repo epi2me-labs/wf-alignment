@@ -19,7 +19,7 @@ def histogram_with_mean_and_median(
     title=None,
     x_axis_name=None,
     y_axis_name=None,
-    bins=100,
+    bins=50,
     round_digits=1,
 ):
     """Create ezcharts histogram showing the mean and median underneath the plot title.
@@ -28,7 +28,7 @@ def histogram_with_mean_and_median(
     :param title: plot title, defaults to None
     :param x_axis_name: x axis label, defaults to None
     :param y_axis_name: y axis label, defaults to None
-    :param bins: number of bins, defaults to 100
+    :param bins: number of bins, defaults to 50
     :param round_digits: number of decimals to round the mean and median values to,
         defaults to 1
     :raises ValueError: Raise error if `series` is not a `pd.Series`
@@ -50,44 +50,6 @@ def histogram_with_mean_and_median(
     if y_axis_name is not None:
         plt.yAxis.name = y_axis_name
     return plt
-
-
-def dropdown_with_histograms(
-    data,
-    groupby_column,
-    data_column,
-    plot_title_func,
-    x_axis_name,
-    y_axis_name,
-    sanitizer,
-):
-    """Create multiple tabs with a histogram in each.
-
-    Take a `pd.DataFrame`, perform a groupby on the `groupby_column` and then
-    generate a tab with a histogram of the values in `data_column` for each group.
-
-    :param data: `pd.DataFrame` containing at least `groupby_column` and `data_column`
-    :param groupby_column: column to group by
-    :param data_column: column of data to plot in the histogram
-    :param plot_title_func: function taking the name of the group and returning the plot
-        title
-    :param x_axis_name: x axis label
-    :param y_axis_name: y axis label
-    :param sanitizer: `sanitizer.Sanitizer` for sanitizing strings passed to ezcharts
-    """
-    tabs = Tabs()
-    with tabs.add_dropdown_menu():
-        for grp_name, df in data.groupby(groupby_column, observed=True):
-            grp_name = sanitizer(grp_name)
-            plot_title = plot_title_func(grp_name)
-            with tabs.add_dropdown_tab(grp_name):
-                plt = histogram_with_mean_and_median(
-                    df[data_column].dropna(),
-                    title=plot_title,
-                    x_axis_name=x_axis_name,
-                    y_axis_name=y_axis_name,
-                )
-                EZChart(plt, theme=THEME)
 
 
 def sub_heading(string):
@@ -285,27 +247,46 @@ def quality(report, stats_df, sanitizer):
             # quality per sample
             with dom_tags.div():
                 sub_heading("Per sample:")
-                dropdown_with_histograms(
-                    data=stats_df,
-                    groupby_column="sample_name",
-                    data_column="mean_quality",
-                    plot_title_func=lambda _: None,
-                    x_axis_name="Quality",
-                    y_axis_name="Number of reads",
-                    sanitizer=sanitizer,
-                )
+                tabs = Tabs()
+                with tabs.add_dropdown_menu():
+                    for grp_name, df in stats_df.groupby("sample_name", observed=True):
+                        grp_name = sanitizer(grp_name)
+                        plot_title = grp_name
+                        with tabs.add_dropdown_tab(grp_name):
+                            vals = df["mean_quality"].dropna()
+                            lower_limit = vals.quantile(0.01).round(1)
+                            upper_limit = vals.quantile(0.99).round(1)
+                            plt = histogram_with_mean_and_median(
+                                vals[(vals >= lower_limit) & (vals <= upper_limit)],
+                                title=plot_title,
+                                x_axis_name="Quality",
+                                y_axis_name="Number of reads",
+                            )
+                            plt.xAxis.min = lower_limit
+                            plt.xAxis.max = upper_limit
+                            EZChart(plt, theme=THEME)
+
             # quality per ref file
             with dom_tags.div():
-                sub_heading("Per ref.file:")
-                dropdown_with_histograms(
-                    data=stats_df,
-                    groupby_column="ref_file",
-                    data_column="mean_quality",
-                    plot_title_func=lambda _: None,
-                    x_axis_name="Quality",
-                    y_axis_name="Number of reads",
-                    sanitizer=sanitizer,
-                )
+                sub_heading("Per reference file:")
+                tabs = Tabs()
+                with tabs.add_dropdown_menu():
+                    for grp_name, df in stats_df.groupby("ref_file", observed=True):
+                        grp_name = sanitizer(grp_name)
+                        plot_title = grp_name
+                        with tabs.add_dropdown_tab(grp_name):
+                            vals = df["mean_quality"].dropna()
+                            lower_limit = vals.quantile(0.01).round(1)
+                            upper_limit = vals.quantile(0.99).round(1)
+                            plt = histogram_with_mean_and_median(
+                                vals[(vals >= lower_limit) & (vals <= upper_limit)],
+                                title=plot_title,
+                                x_axis_name="Quality",
+                                y_axis_name="Number of reads",
+                            )
+                            plt.xAxis.min = lower_limit
+                            plt.xAxis.max = upper_limit
+                            EZChart(plt, theme=THEME)
 
 
 def accuracy(report, stats_df_mapped, sanitizer):
@@ -321,27 +302,48 @@ def accuracy(report, stats_df_mapped, sanitizer):
             # accuracy per sample
             with dom_tags.div():
                 sub_heading("Per sample:")
-                dropdown_with_histograms(
-                    data=stats_df_mapped,
-                    groupby_column="sample_name",
-                    data_column="acc",
-                    plot_title_func=lambda _: None,
-                    x_axis_name="Accuracy [%]",
-                    y_axis_name="Number of reads",
-                    sanitizer=sanitizer,
-                )
+                tabs = Tabs()
+                with tabs.add_dropdown_menu():
+                    for grp_name, df in stats_df_mapped.groupby(
+                        "sample_name", observed=True
+                    ):
+                        grp_name = sanitizer(grp_name)
+                        plot_title = grp_name
+                        with tabs.add_dropdown_tab(grp_name):
+                            vals = df["acc"].dropna()
+                            lower_limit = vals.quantile(0.01).round()
+                            plt = histogram_with_mean_and_median(
+                                vals[vals >= lower_limit],
+                                title=plot_title,
+                                x_axis_name="Accuracy [%]",
+                                y_axis_name="Number of reads",
+                            )
+                            plt.xAxis.min = lower_limit
+                            plt.xAxis.max = 100
+                            EZChart(plt, theme=THEME)
+
             # accuracy per ref file
             with dom_tags.div():
-                sub_heading("Per ref.file:")
-                dropdown_with_histograms(
-                    data=stats_df_mapped,
-                    groupby_column="ref_file",
-                    data_column="acc",
-                    plot_title_func=lambda _: None,
-                    x_axis_name="Accuracy [%]",
-                    y_axis_name="Number of reads",
-                    sanitizer=sanitizer,
-                )
+                sub_heading("Per reference file:")
+                tabs = Tabs()
+                with tabs.add_dropdown_menu():
+                    for grp_name, df in stats_df_mapped.groupby(
+                        "ref_file", observed=True
+                    ):
+                        grp_name = sanitizer(grp_name)
+                        plot_title = grp_name
+                        with tabs.add_dropdown_tab(grp_name):
+                            vals = df["acc"].dropna()
+                            lower_limit = vals.quantile(0.01).round()
+                            plt = histogram_with_mean_and_median(
+                                vals[vals >= lower_limit],
+                                title=plot_title,
+                                x_axis_name="Accuracy [%]",
+                                y_axis_name="Number of reads",
+                            )
+                            plt.xAxis.min = lower_limit
+                            plt.xAxis.max = 100
+                            EZChart(plt, theme=THEME)
 
 
 def read_coverage(report, stats_df_mapped, sanitizer):
@@ -366,61 +368,48 @@ def read_coverage(report, stats_df_mapped, sanitizer):
             with dom_tags.div():
                 # coverage per sample
                 sub_heading("Per sample:")
-                dropdown_with_histograms(
-                    data=stats_df_mapped,
-                    groupby_column="sample_name",
-                    data_column="coverage",
-                    plot_title_func=lambda _: None,
-                    x_axis_name="Coverage [%]",
-                    y_axis_name="Number of reads",
-                    sanitizer=sanitizer,
-                )
+                tabs = Tabs()
+                with tabs.add_dropdown_menu():
+                    for grp_name, df in stats_df_mapped.groupby(
+                        "sample_name", observed=True
+                    ):
+                        grp_name = sanitizer(grp_name)
+                        plot_title = grp_name
+                        with tabs.add_dropdown_tab(grp_name):
+                            vals = df["coverage"].dropna()
+                            lower_limit = vals.quantile(0.01).round()
+                            plt = histogram_with_mean_and_median(
+                                vals[vals >= lower_limit],
+                                title=plot_title,
+                                x_axis_name="Coverage [%]",
+                                y_axis_name="Number of reads",
+                            )
+                            plt.xAxis.min = lower_limit
+                            plt.xAxis.max = 100
+                            EZChart(plt, theme=THEME)
+
             with dom_tags.div():
-                sub_heading("Per ref.file:")
-                # coverage per ref (not per ref file)
-                dropdown_with_histograms(
-                    data=stats_df_mapped,
-                    groupby_column="ref_file",
-                    data_column="coverage",
-                    plot_title_func=lambda _: None,
-                    x_axis_name="Coverage [%]",
-                    y_axis_name="Number of reads",
-                    sanitizer=sanitizer,
-                )
-
-
-def ref_coverage(report, stats_df_mapped, sanitizer):
-    """Create ref coverage section.
-
-    This section contains histograms showing the portion of reference
-    sequences covered by alignments of individual reads.
-
-    :param report: report object (`ezcharts.components.reports.labs.LabsReport`)
-    :param stats_df_mapped: `pd.DataFrame` with bamstats per-read stats (aligned reads
-        only)
-    :param sanitizer: `sanitizer.Sanitizer` for sanitizing strings passed to ezcharts
-    """
-    with report.add_section("Reference coverage", "Ref. cov."):
-        dom_tags.p(
-            """
-            These histograms show how much of the reference was covered by an individual
-            alignment (i.e. by a single read mapped to it). These values will of course
-            vary greatly for references with different lengths.
-            """
-        )
-        with Grid():
-            for ref_file, df in stats_df_mapped.groupby("ref_file", observed=True):
-                with dom_tags.div():
-                    sub_heading(f"Reference file '{ref_file}':")
-                    dropdown_with_histograms(
-                        data=df,
-                        groupby_column="ref",
-                        data_column="ref_coverage",
-                        plot_title_func=lambda _: None,
-                        x_axis_name="Coverage [%]",
-                        y_axis_name="Number of reads",
-                        sanitizer=sanitizer,
-                    )
+                # coverage per sample
+                sub_heading("Per reference file:")
+                tabs = Tabs()
+                with tabs.add_dropdown_menu():
+                    for grp_name, df in stats_df_mapped.groupby(
+                        "ref_file", observed=True
+                    ):
+                        grp_name = sanitizer(grp_name)
+                        plot_title = grp_name
+                        with tabs.add_dropdown_tab(grp_name):
+                            vals = df["coverage"].dropna()
+                            lower_limit = vals.quantile(0.01).round()
+                            plt = histogram_with_mean_and_median(
+                                vals[vals >= lower_limit],
+                                title=plot_title,
+                                x_axis_name="Coverage [%]",
+                                y_axis_name="Number of reads",
+                            )
+                            plt.xAxis.min = lower_limit
+                            plt.xAxis.max = 100
+                            EZChart(plt, theme=THEME)
 
 
 def get_relative_cumulative_depths(depth_df):
