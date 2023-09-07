@@ -114,7 +114,9 @@ process concatBam_or_mv {
         tuple val(meta), path(out)
     script:
         out = "reads.bam"
-        exts = "{" + extensions.join(",") + "}"
+        String exts = extensions instanceof List ? (
+            extensions.size() > 1 ? "{" + extensions.join(",") + "}" : extensions[0]
+        ) : extensions
         if (input.isFile()) {
             """
             mv $input $out

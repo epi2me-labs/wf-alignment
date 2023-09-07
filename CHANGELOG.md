@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Changed
 - x-axis limits for accuracy, mean read quality, and read alignment coverage histograms to be more dynamic.
+### Fixed
+- Workflow will no longer crash when running with `--bam` on an input directory containing more than one `.bam` file.
 
 ## [v0.5.2]
 ### Changed
