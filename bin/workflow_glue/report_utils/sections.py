@@ -219,20 +219,18 @@ def summary(report, sample_names, ref_files, ref_seqs, stats_df, flagstat_df):
                 with tabs.add_dropdown_tab(sample_name):
                     with Grid():
                         # read length plot
-                        max_read_length_to_show = (
-                            (sample_df["read_length"] / 1000)
-                            .quantile(0.99, interpolation="lower")
-                            .round()
+                        read_len_plt = fastcat.read_length_plot(
+                            sample_df, xlim=(0, 0.99), quantile_limits=True
                         )
-                        plt = fastcat.read_length_plot(sample_df)
-                        plt.xAxis.max = max_read_length_to_show
-                        EZChart(plt, theme=THEME)
+                        read_len_plt.xAxis.min = 0
+                        read_len_plt.xAxis.max = round(float(read_len_plt.xAxis.max), 2)
+                        EZChart(read_len_plt, theme=THEME)
                         # base yield plot
-                        plt = fastcat.base_yield_plot(sample_df)
-                        # the base yield plot has kb as x-axis unit
-                        plt.xAxis.max = max_read_length_to_show
-                        plt.tooltip = None
-                        EZChart(plt, theme=THEME)
+                        yield_plt = fastcat.base_yield_plot(sample_df)
+                        # set the x-axis limit to match the read length histogram
+                        yield_plt.xAxis.max = read_len_plt.xAxis.max
+                        yield_plt.tooltip = None
+                        EZChart(yield_plt, theme=THEME)
 
 
 def quality(report, stats_df, sanitizer):
