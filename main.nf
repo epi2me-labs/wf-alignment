@@ -295,13 +295,13 @@ process configure_jbrowse {
         // when the cardinality is 1, bam.size() returns the filesize of the bam!
         this_bam = a
         this_bai = indexes[i]
-        alignment_args << "--alignment ${params.out_dir}/${this_bam.name} ${params.out_dir}/${this_bai.name}"
+        alignment_args << "--alignment '${params.out_dir}/${this_bam.name}' '${params.out_dir}/${this_bai.name}'"
         i++;
     }
     String alignment_args_str = alignment_args.join(' ')
     """
     workflow-glue configure_jbrowse \
-        --reference ${reference} ${params.out_dir}/${reference.name} ${params.out_dir}/${ref_idx.name} \
+        --reference '${reference}' '${params.out_dir}/${reference.name}' '${params.out_dir}/${ref_idx.name}' \
         ${alignment_args_str} > jbrowse.json
     """
 }
