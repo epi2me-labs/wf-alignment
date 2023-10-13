@@ -3,7 +3,7 @@
 import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
-include { ingress } from "./lib/ingress"
+include { fastq_ingress; xam_ingress; } from "./lib/ingress"
 include { process_references } from "./subworkflows/process_references"
 
 
@@ -19,35 +19,17 @@ process alignReads {
     input:
         tuple val(meta), path(input)
         path combined_refs
-        val input_type
+        val is_xam
         val minimap_args
     output:
         tuple val(meta), path(bam_name)
     script:
         def sample_name = meta["alias"]
         bam_name = "${sample_name}.sorted.aligned.bam"
-        if (!(input_type in ["fastq", "ubam"])) {
-            error "`input_type` must be either 'fastq' or 'ubam'."
-        }
     """
-    ${(input_type == "fastq") ? "cat $input" : "samtools fastq -T '*' $input"} \
+    ${is_xam ? "samtools fastq -T '*' $input" : "cat $input"} \
     | minimap2 -t $params.mapping_threads $minimap_args $combined_refs - \
     | samtools sort -@ ${params.sorting_threads - 1} -o $bam_name -
-    """
-}
-
-process sortInputBam {
-    label "wfalignment"
-    cpus params.sorting_threads
-    input:
-        tuple val(meta), path(bam)
-    output:
-        tuple val(meta), path(sorted_bam_name)
-    script:
-        def sample_name = meta["alias"]
-        sorted_bam_name = "${sample_name}.sorted.aligned.bam"
-    """
-    samtools sort -@ $task.cpus -o $sorted_bam_name $bam
     """
 }
 
@@ -196,7 +178,6 @@ process getParams {
 workflow pipeline {
     take:
         sample_data
-        input_type
         refs
         counts
         depth_coverage
@@ -208,24 +189,37 @@ workflow pipeline {
         // handle references
         refs = process_references(params.references)
 
-        def bam
+        sample_data = sample_data
+        | map { meta, path, stats -> [meta, path] }
+
         String minimap_args
-        if (input_type in ["fastq", "ubam"]) {
-            // run minimap
-            if (! MINIMAP_ARGS_PRESETS.containsKey(params.minimap_preset)) {
-                error "'--minimap_preset' needs to be one of " +
-                    "${MINIMAP_ARGS_PRESETS.keySet()}."
+
+        if (params.bam) {
+            ch_branched = sample_data.branch { meta, bam ->
+                to_align: meta["is_unaligned"]
+                aligned: true
             }
-            minimap_args = params.minimap_args ?: \
-                MINIMAP_ARGS_PRESETS[params.minimap_preset]
-            bam = alignReads(sample_data, refs.combined, input_type, minimap_args)
+            ch_to_align = ch_branched.to_align
+            // `xam_ingress` sorts the BAMs, so we don't have to
+            bam = ch_branched.aligned
         } else {
-            // input is bam
-            bam = sortInputBam(sample_data)
+            // FASTQ input
+            ch_to_align = sample_data
+            bam = Channel.empty()
         }
 
-        // index the bam
-        bam = indexBam(bam)
+        // run minimap
+        if (! MINIMAP_ARGS_PRESETS.containsKey(params.minimap_preset)) {
+            error "'--minimap_preset' needs to be one of " +
+                "${MINIMAP_ARGS_PRESETS.keySet()}."
+        }
+        minimap_args = params.minimap_args ?: \
+            MINIMAP_ARGS_PRESETS[params.minimap_preset]
+        bam = bam
+        | mix(
+            alignReads(ch_to_align, refs.combined, params.bam as boolean, minimap_args)
+        )
+        | indexBam
 
         // get stats
         stats = bamstats(bam)
@@ -310,33 +304,29 @@ process configure_jbrowse {
 // entrypoint workflow
 WorkflowMain.initialise(workflow, params, log)
 workflow {
-    if (params.disable_ping == false) {
-        Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
-    }
+    Pinguscript.ping_start(nextflow, workflow, params)
 
-    // macke sure that one of `--fastq`, `--bam`, or `--ubam` was given
-    def input_type = ['fastq', 'bam', 'ubam'].findAll { params[it] }
-    if (input_type.size() != 1) {
-        error "Only provide one of '--fastq', '--bam' or '--ubam'."
-    }
-
-    input_type = input_type[0]
-
-    // get input data
-    sample_data = ingress([
-        "input": params[input_type],
-        "input_type": input_type,
+    Map ingress_args = [
         "sample": params.sample,
         "sample_sheet": params.sample_sheet,
         "analyse_unclassified": params.analyse_unclassified,
-        "fastcat_stats": false
-    ])
+        "stats": false,
+    ]
+
+    // get input data
+    if (params.fastq) {
+        sample_data = fastq_ingress(ingress_args + ["input": params.fastq])
+    } else {
+        sample_data = xam_ingress(
+            ingress_args + ["input": params.bam, "keep_unaligned": true]
+        )
+    }
 
     counts = file(params.counts ?: OPTIONAL_FILE, checkIfExists: true)
 
     // Run pipeline
     results = pipeline(
-        sample_data, input_type, params.references, counts, params.depth_coverage
+        sample_data, params.references, counts, params.depth_coverage
     )
 
     // create jbrowse file
@@ -349,11 +339,9 @@ workflow {
     output(jb2_conf.concat(results))
 }
 
-if (params.disable_ping == false) {
-    workflow.onComplete {
-        Pinguscript.ping_post(workflow, "end", "none", params.out_dir, params)
-    }
-    workflow.onError {
-        Pinguscript.ping_post(workflow, "error", "$workflow.errorMessage", params.out_dir, params)
-    }
+workflow.onComplete {
+    Pinguscript.ping_complete(nextflow, workflow, params)
+}
+workflow.onError {
+    Pinguscript.ping_error(nextflow, workflow, params)
 }
