@@ -99,9 +99,9 @@ process readDepthPerRef {
     done < $ref_len
 
     # use `find` instead of a glob as this cannot fail with `Argument list too long`
-    find *.regions.bed.gz -exec cat {} + > $outfname
+    find -name '*.regions.bed.gz' -exec cat {} + > $outfname
     # remove all the temp files
-    rm -rf ${sample_name}.*.temp*
+    find -name '${sample_name}.*.temp*' -delete
     """
 }
 
