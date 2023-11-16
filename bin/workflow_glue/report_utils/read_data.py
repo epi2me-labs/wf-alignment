@@ -111,7 +111,7 @@ def depths(depths_dir, sample_names):
     """
     dfs = []
     for sample_name in sample_names:
-        (fname,) = [x for x in os.listdir(depths_dir) if x.startswith(sample_name)]
+        fname = f"{sample_name}.all_regions.bed.gz"
         df = pd.read_csv(
             f"{depths_dir}/{fname}",
             sep="\t",
