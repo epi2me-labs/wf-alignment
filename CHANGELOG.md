@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+### Removed
+- Default local executor CPU and RAM limits.
+
+### Changed
+- Names of barcoded directories in the sample sheet now need to be of format `barcodeXY`.
+
 ## [v0.6.1]
 ### Fixed
 - Workflow failing when using a large number of reference sequences.
