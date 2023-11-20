@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+### Fixed
+- Report generation failing when there is only a single read or a small number of reads with near-identical mean quality for a sample or reference file.
+
 ## [v0.6.2]
 ### Fixed
 - Report generation failing when a sample name begins with the name of another sample (e.g. 'sample_A' and 'sample_A_2').

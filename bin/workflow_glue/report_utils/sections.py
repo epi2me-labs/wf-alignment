@@ -252,16 +252,16 @@ def quality(report, stats_df, sanitizer):
                         plot_title = grp_name
                         with tabs.add_dropdown_tab(grp_name):
                             vals = df["mean_quality"].dropna()
-                            lower_limit = vals.quantile(0.01).round(1)
-                            upper_limit = vals.quantile(0.99).round(1)
+                            lower_limit = vals.quantile(0.01, interpolation="lower")
+                            upper_limit = vals.quantile(0.99, interpolation="higher")
                             plt = histogram_with_mean_and_median(
                                 vals[(vals >= lower_limit) & (vals <= upper_limit)],
                                 title=plot_title,
                                 x_axis_name="Quality",
                                 y_axis_name="Number of reads",
                             )
-                            plt.xAxis.min = lower_limit
-                            plt.xAxis.max = upper_limit
+                            plt.xAxis.min = lower_limit.round(1)
+                            plt.xAxis.max = upper_limit.round(1)
                             EZChart(plt, theme=THEME)
 
             # quality per ref file
@@ -274,16 +274,16 @@ def quality(report, stats_df, sanitizer):
                         plot_title = grp_name
                         with tabs.add_dropdown_tab(grp_name):
                             vals = df["mean_quality"].dropna()
-                            lower_limit = vals.quantile(0.01).round(1)
-                            upper_limit = vals.quantile(0.99).round(1)
+                            lower_limit = vals.quantile(0.01, interpolation="lower")
+                            upper_limit = vals.quantile(0.99, interpolation="higher")
                             plt = histogram_with_mean_and_median(
                                 vals[(vals >= lower_limit) & (vals <= upper_limit)],
                                 title=plot_title,
                                 x_axis_name="Quality",
                                 y_axis_name="Number of reads",
                             )
-                            plt.xAxis.min = lower_limit
-                            plt.xAxis.max = upper_limit
+                            plt.xAxis.min = lower_limit.round(1)
+                            plt.xAxis.max = upper_limit.round(1)
                             EZChart(plt, theme=THEME)
 
 
@@ -309,14 +309,14 @@ def accuracy(report, stats_df_mapped, sanitizer):
                         plot_title = grp_name
                         with tabs.add_dropdown_tab(grp_name):
                             vals = df["acc"].dropna()
-                            lower_limit = vals.quantile(0.01).round()
+                            lower_limit = vals.quantile(0.01, interpolation="lower")
                             plt = histogram_with_mean_and_median(
                                 vals[vals >= lower_limit],
                                 title=plot_title,
                                 x_axis_name="Accuracy [%]",
                                 y_axis_name="Number of reads",
                             )
-                            plt.xAxis.min = lower_limit
+                            plt.xAxis.min = lower_limit.round(1)
                             plt.xAxis.max = 100
                             EZChart(plt, theme=THEME)
 
@@ -332,14 +332,14 @@ def accuracy(report, stats_df_mapped, sanitizer):
                         plot_title = grp_name
                         with tabs.add_dropdown_tab(grp_name):
                             vals = df["acc"].dropna()
-                            lower_limit = vals.quantile(0.01).round()
+                            lower_limit = vals.quantile(0.01, interpolation="lower")
                             plt = histogram_with_mean_and_median(
                                 vals[vals >= lower_limit],
                                 title=plot_title,
                                 x_axis_name="Accuracy [%]",
                                 y_axis_name="Number of reads",
                             )
-                            plt.xAxis.min = lower_limit
+                            plt.xAxis.min = lower_limit.round(1)
                             plt.xAxis.max = 100
                             EZChart(plt, theme=THEME)
 
@@ -375,14 +375,14 @@ def read_coverage(report, stats_df_mapped, sanitizer):
                         plot_title = grp_name
                         with tabs.add_dropdown_tab(grp_name):
                             vals = df["coverage"].dropna()
-                            lower_limit = vals.quantile(0.01).round()
+                            lower_limit = vals.quantile(0.01, interpolation="lower")
                             plt = histogram_with_mean_and_median(
                                 vals[vals >= lower_limit],
                                 title=plot_title,
                                 x_axis_name="Coverage [%]",
                                 y_axis_name="Number of reads",
                             )
-                            plt.xAxis.min = lower_limit
+                            plt.xAxis.min = lower_limit.round(1)
                             plt.xAxis.max = 100
                             EZChart(plt, theme=THEME)
 
@@ -398,14 +398,14 @@ def read_coverage(report, stats_df_mapped, sanitizer):
                         plot_title = grp_name
                         with tabs.add_dropdown_tab(grp_name):
                             vals = df["coverage"].dropna()
-                            lower_limit = vals.quantile(0.01).round()
+                            lower_limit = vals.quantile(0.01, interpolation="lower")
                             plt = histogram_with_mean_and_median(
                                 vals[vals >= lower_limit],
                                 title=plot_title,
                                 x_axis_name="Coverage [%]",
                                 y_axis_name="Number of reads",
                             )
-                            plt.xAxis.min = lower_limit
+                            plt.xAxis.min = lower_limit.round(1)
                             plt.xAxis.max = 100
                             EZChart(plt, theme=THEME)
 
