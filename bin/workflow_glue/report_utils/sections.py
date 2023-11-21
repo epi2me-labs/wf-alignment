@@ -460,18 +460,9 @@ def depths(report, depth_df):
         with tabs.add_dropdown_menu():
             for ref_file, df_ref_file in depth_df.groupby("ref_file"):
                 # prepare data for depth vs coordinate plot
-                df_depth_vs_coords = (
-                    df_ref_file.eval("mean_pos = (start + end) / 2")
-                    .eval("step = end - start")
-                    .reset_index()
+                df_depth_vs_coords = df_ref_file.eval("step = end - start").eval(
+                    "total_mean_pos=step.cumsum() - step / 2"
                 )
-                ref_lengths = df_depth_vs_coords.groupby("ref", observed=True)[
-                    "end"
-                ].last()
-                total_ref_starts = ref_lengths.cumsum().shift(1, fill_value=0)
-                df_depth_vs_coords["total_mean_pos"] = df_depth_vs_coords.groupby(
-                    "ref", observed=True, group_keys=False
-                )["mean_pos"].apply(lambda s: s + total_ref_starts[s.name])
                 # prepare data for cumulative depth plot
                 df_cumul_depth = get_relative_cumulative_depths(df_ref_file)
                 with tabs.add_dropdown_tab(ref_file):
