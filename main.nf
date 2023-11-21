@@ -96,10 +96,10 @@ process readDepthPerRef {
         mosdepth -n --fast-mode --by "\$steps" --chrom "\$name" -t $task.cpus \
             ${sample_name}."\$name".temp $alignment \
         || echo "No alignments for "\$name""
+        [[ -f ${sample_name}."\$name".temp.regions.bed.gz ]] && \
+            cat ${sample_name}."\$name".temp.regions.bed.gz >> $outfname
     done < $ref_len
 
-    # use `find` instead of a glob as this cannot fail with `Argument list too long`
-    find -name '*.regions.bed.gz' -exec cat {} + > $outfname
     # remove all the temp files
     find -name '${sample_name}.*.temp*' -delete
     """
