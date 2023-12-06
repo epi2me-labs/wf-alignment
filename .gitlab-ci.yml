@@ -30,16 +30,16 @@ docker-run:
         - if: $MATRIX_NAME == "fastq"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references \
-                  --counts test_data/counts/ERCC_mix1.csv"
+                  --counts test_data/counts/ERCC_mix1.csv -executor.\\$$local.memory 16GB"
         - if: $MATRIX_NAME == "bam"
           variables:
               NF_WORKFLOW_OPTS: "--bam test_data/bam --references test_data/references \
-                  --counts test_data/counts/ERCC_mix1.csv"
+                  --counts test_data/counts/ERCC_mix1.csv -executor.\\$$local.memory 16GB"
               NF_IGNORE_PROCESSES: alignReads
         - if: $MATRIX_NAME == "ubam"
           variables:
               NF_WORKFLOW_OPTS: "--bam test_data/ubam --references test_data/references \
-                  --counts test_data/counts/ERCC_mix1.csv"
+                  --counts test_data/counts/ERCC_mix1.csv -executor.\\$$local.memory 16GB"
 
 aws-run:
     parallel:

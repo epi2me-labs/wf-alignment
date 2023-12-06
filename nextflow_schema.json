@@ -2,6 +2,7 @@
     "$schema": "http://json-schema.org/draft-07/schema",
     "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
     "title": "epi2me-labs/wf-alignment",
+    "workflow_title": "Alignment workflow",
     "description": "Align Nanopore reads and visualize mapping statistics.",
     "demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-alignment/wf-alignment-demo.tar.gz",
     "aws_demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-alignment/wf-alignment-demo/aws.nextflow.config",
@@ -16,17 +17,16 @@
             "properties": {
                 "fastq": {
                     "type": "string",
-                    "format": "directory-path",
+                    "format": "path",
                     "title": "FASTQ",
-                    "description": "Directory with FASTQ files to use in the analysis.",
-                    "help_text": "This accepts one of two cases: (i) the path to a top-level directory containing one or more FASTQ files; (ii) the path to a directory containing one level of sub-directories which in turn contain FASTQ files. In the first case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`."
+                    "description": "FASTQ files to use in the analysis.",
+                    "help_text": "This accepts one of three cases: (i) the path to a single FASTQ file; (ii) the path to a top-level directory containing FASTQ files; (iii) the path to a directory containing one level of sub-directories which in turn contain FASTQ files. In the first and second case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`."
                 },
                 "bam": {
                     "type": "string",
-                    "format": "directory-path",
-                    "title": "BAM",
-                    "description": "Directory with BAM files to use in the analysis.",
-                    "help_text": "This accepts one of two cases: (i) the path to a top-level directory containing one or more BAM files; (ii) the path to a directory containing one level of sub-directories which in turn contain BAM files. In the first case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`."
+                    "format": "path",
+                    "description": "BAM or unaligned BAM (uBAM) files to use in the analysis.",
+                    "help_text": "This accepts one of three cases: (i) the path to a single BAM file; (ii) the path to a top-level directory containing BAM files; (iii) the path to a directory containing one level of sub-directories which in turn contain BAM files. In the first and second case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`."
                 },
                 "analyse_unclassified": {
                     "type": "boolean",
@@ -118,7 +118,7 @@
                 "depth_coverage": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Calculate depth coverage statistics and include in the report.",
+                    "description": "Calculate depth coverage statistics and include them in the report.",
                     "help_text": "This step can be a computational bottleneck. Set this to false if your reference sequences are >50mb to speed things up."
                 },
                 "minimap_preset": {
@@ -140,34 +140,20 @@
                 }
             }
         },
-        "multiprocessing_options": {
-            "title": "Multiprocessing Options",
-            "type": "object",
-            "fa_icon": "far fa-gauge-high",
-            "description": "Options for configuring the compute resources for several processes in the workflow.",
-            "properties": {
-                "mapping_threads": {
-                    "type": "integer",
-                    "default": 2,
-                    "minimum": 1,
-                    "description": "Number of CPU threads to use for the alignment step.",
-                    "help_text": "`minimap2` will be run with this many threads. The total number of threads used by the alignment process is the sum of this parameter and `sorting_threads`."
-                },
-                "sorting_threads": {
-                    "type": "integer",
-                    "default": 2,
-                    "minimum": 1,
-                    "description": "Number of CPU threads to use for sorting.",
-                    "help_text": "The alignments created by `minimap2` will be sorted with this many threads. The total number of threads used by the alignment process is the sum of this parameter and `mapping_threads`."
-                }
-            }
-        },
         "misc": {
             "title": "Miscellaneous Options",
             "type": "object",
             "description": "Everything else.",
             "default": "",
             "properties": {
+                "threads": {
+                    "type": "integer",
+                    "default": 4,
+                    "minimum": 4,
+                    "maximum": 20,
+                    "description": "Number of CPU threads to use for the alignment step.",
+                    "help_text": "The alignment process will run with this many threads (note that the memory used by minimap2 scales with the number of threads). The total CPU resources used by the workflow are constrained by the executor configuration and can be modified by changing `nextflow.config` or supplying an additional config file."
+                },
                 "disable_ping": {
                     "type": "boolean",
                     "default": false,
@@ -204,9 +190,6 @@
             "$ref": "#/definitions/advanced_options"
         },
         {
-            "$ref": "#/definitions/multiprocessing_options"
-        },
-        {
             "$ref": "#/definitions/misc"
         }
     ],
@@ -230,8 +213,16 @@
             "type": "boolean"
         }
     },
-    "docs": {
-        "intro": "## Introduction\n\nThis workflow provides an easy way to align Oxford Nanopore reads and gather mapping\nstats either locally for small amounts of data or at scale in a distributed\nenvironment such as a cluster.\n",
-        "links": "## Useful links\n\n* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)\n* [singularity](https://docs.sylabs.io/guides/latest/user-guide/)\n* [minimap2](https://github.com/lh3/minimap2)"
+    "resources": {
+        "recommended": {
+            "cpus": 12,
+            "memory": "32GB"
+        },
+        "minimum": {
+            "cpus": 6,
+            "memory": "16GB"
+        },
+        "run_time": "0.5-5 minutes per sample (depending on number of reads, length of reference, and available compute).",
+        "arm_support": true
     }
 }
