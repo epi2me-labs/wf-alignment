@@ -1,0 +1,3 @@
+*I cannot select a single reference file in the EPI2ME desktop app.* - When running the workflow via the desktop app, you need to provide a directory with reference files. If you only have a single file, you can create a directory to place your reference file inside and select this with the reference input option.
+
+If your question is not answered here, please report any issues or suggestions on the [github issues](https://github.com/epi2me-labs/wf-alignment/issues) page or start a discussion on the [community](https://community.nanoporetech.com/).

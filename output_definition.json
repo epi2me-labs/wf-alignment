@@ -1,0 +1,60 @@
+{
+  "files": {
+    "workflow-report": {
+      "filepath": "./wf-alignment-report.html",
+      "title": "workflow report",
+      "description": "Report for all samples",
+      "mime-type": "text/html",
+      "optional": false,
+      "type": "aggregated"
+    },
+    "references": {
+      "filepath": "./combined-refs.fasta",
+      "title": "Combined references",
+      "description": "FASTA file containing all input references.",
+      "mime-type": "text/txt",
+      "optional": false,
+      "type": "aggregated"
+    },
+    "references-index": {
+      "filepath": "./combined-refs.fasta.fai",
+      "title": "Combined references index",
+      "description": "Index file for combined references FASTA.",
+      "mime-type": "text/txt",
+      "optional": false,
+      "type": "aggregated"
+    },
+    "per-read-bamstats": {
+      "filepath": "./{{ alias }}.readstats.tsv",
+      "title": "Per-read alignment stats",
+      "description": "Bamstats per-read output TSV file.",
+      "mime-type": "text/tab-separated-values",
+      "optional": false,
+      "type": "per-sample"
+    },
+    "bamstats-flagstat": {
+      "filepath": "./{{ alias }}.flagstat.tsv",
+      "title": "Per-reference alignment stats",
+      "description": "Bamstats flagstat output TSV file.",
+      "mime-type": "text/tab-separated-values",
+      "optional": false,
+      "type": "per-sample"
+    },
+    "alignments": {
+      "filepath": "./{{ alias }}.sorted.aligned.bam",
+      "title": "Alignments BAM file",
+      "description": "BAM file with alignments of filtered input reads against the combined references.",
+      "mime-type": "application/gzip",
+      "optional": false,
+      "type": "per-sample"
+    },
+    "alignments-index": {
+      "filepath": "./{{ alias }}.sorted.aligned.bam.bai",
+      "title": "Alignments index file",
+      "description": "Index for alignments BAM file.",
+      "mime-type": "application/octet-stream",
+      "optional": false,
+      "type": "per-sample"
+    }
+  }
+}

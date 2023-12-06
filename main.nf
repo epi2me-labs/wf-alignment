@@ -15,7 +15,11 @@ MINIMAP_ARGS_PRESETS = [
 
 process alignReads {
     label "wfalignment"
-    cpus params.mapping_threads + params.sorting_threads
+    cpus params.threads
+    memory {
+        def ref_size = combined_refs.size()
+        ref_size > 2e9 ? "32 GB" : ref_size > 1e8 ? "16 GB" : "2 GB"
+    }
     input:
         tuple val(meta), path(input)
         path combined_refs
@@ -26,16 +30,23 @@ process alignReads {
     script:
         def sample_name = meta["alias"]
         bam_name = "${sample_name}.sorted.aligned.bam"
+        int sorting_threads = Math.min((task.cpus / 3) as int, 3)
+        int mapping_threads = task.cpus - sorting_threads
+        // the minimum for `params.threads` in the schema is `4` and we should have
+        // positive values for both thread vars, but can't hurt to make extra sure
+        sorting_threads = Math.max(1, sorting_threads)
+        mapping_threads = Math.max(1, mapping_threads)
     """
     ${is_xam ? "samtools fastq -T '*' $input" : "cat $input"} \
-    | minimap2 -t $params.mapping_threads $minimap_args $combined_refs - \
-    | samtools sort -@ ${params.sorting_threads - 1} -o $bam_name -
+    | minimap2 -t $mapping_threads $minimap_args $combined_refs - \
+    | samtools sort -@ ${sorting_threads - 1} -o $bam_name -
     """
 }
 
 process indexBam {
     label "wfalignment"
     cpus 1
+    memory "2 GB"
     input:
         tuple val(meta), path(bam)
     output:
@@ -49,6 +60,7 @@ process indexBam {
 process bamstats {
     label "wfalignment"
     cpus 2
+    memory "4 GB"
     input:
         tuple val(meta), path(bam), path(index)
     output:
@@ -67,6 +79,7 @@ process addStepsColumn {
     // determining window length / number for such cases
     label "wfalignment"
     cpus 1
+    memory "2 GB"
     input: path "lengths.csv"
     output: path "lengths_with_steps.csv"
     """
@@ -83,6 +96,7 @@ process readDepthPerRef {
     // TODO: check if parallelisation with `xargs` or `parallel` is more efficient
     label "wfalignment"
     cpus 3
+    memory "8 GB"
     input:
         tuple val(meta), path(alignment), path(index)
         path ref_len
@@ -108,6 +122,7 @@ process readDepthPerRef {
 process makeReport {
     label "wfalignment"
     cpus 1
+    memory "16 GB"
     input:
         path "readstats/*"
         path "flagstat/*"
@@ -143,6 +158,7 @@ process makeReport {
 process getVersions {
     label "wfalignment"
     cpus 1
+    memory "2 GB"
     output:
         path "versions.txt"
     script:
@@ -163,6 +179,7 @@ process getVersions {
 process getParams {
     label "wfalignment"
     cpus 1
+    memory "2 GB"
     output:
         path "params.json"
     script:
@@ -259,6 +276,8 @@ workflow pipeline {
 // decoupling the publish from the process steps.
 process output {
     label "wfalignment"
+    cpus 1
+    memory "2 GB"
     // publish inputs to output directory
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*", saveAs: {
         f -> params.prefix ? "${params.prefix}-${f}" : "${f}" }
@@ -274,6 +293,8 @@ process output {
 
 process configure_jbrowse {
     label "wfalignment"
+    cpus 1
+    memory { reference.size() > 1e9 ? "16 GB" : "2 GB" }
     input:
         path(alignments)
         path(indexes)
