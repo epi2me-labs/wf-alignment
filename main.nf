@@ -80,15 +80,15 @@ process addStepsColumn {
     label "wfalignment"
     cpus 1
     memory "2 GB"
-    input: path "lengths.csv"
-    output: path "lengths_with_steps.csv"
+    input: path "lengths.tsv"
+    output: path "lengths_with_steps.tsv"
     """
     #!/usr/bin/env python
     import pandas as pd
-    all = pd.read_csv('lengths.csv')
+    all = pd.read_csv('lengths.tsv', sep='\\t')
     all["step"] = all["lengths"]//200
     all = all.replace(0, 1)
-    all.to_csv('lengths_with_steps.csv', index=False, header=False)
+    all.to_csv('lengths_with_steps.tsv', index=False, header=False, sep='\\t')
     """
 }
 
@@ -106,7 +106,7 @@ process readDepthPerRef {
         def sample_name = meta["alias"]
         outfname = "${sample_name}.all_regions.bed.gz"
     """
-    while IFS=, read -r name lengths steps; do
+    while IFS=\$'\\t' read -r name lengths steps; do
         mosdepth -n --fast-mode --by "\$steps" --chrom "\$name" -t $task.cpus \
             ${sample_name}."\$name".temp $alignment \
         || echo "No alignments for "\$name""

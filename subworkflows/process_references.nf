@@ -27,13 +27,13 @@ process fx2tab {
         path reference
     output:
         path "*.names.txt", emit: names
-        path "*.lengths.csv", emit: lengths
+        path "*.lengths.tsv", emit: lengths
     script:
     """
     seqkit fx2tab --length --name --only-id $reference > fx2tab.out
     cut -f1 fx2tab.out > ${reference}.names.txt
-    echo 'name,lengths' > ${reference}.lengths.csv
-    tr -s '[:blank:]' ',' < fx2tab.out >> ${reference}.lengths.csv
+    echo -e 'name\\tlengths' > ${reference}.lengths.tsv
+    cat fx2tab.out >> ${reference}.lengths.tsv
     """
 }
 
@@ -73,7 +73,7 @@ workflow process_references {
         names_per_ref_file = fx2tab.out.names
         lengths_per_ref_file = fx2tab.out.lengths
         lengths_combined = fx2tab.out.lengths.collectFile(
-            name: "combined_lengths.csv", keepHeader: true
+            name: "combined_lengths.tsv", keepHeader: true
             // we need to call `.first()` to get a value channel (`.collectFile()`
             // always returns a queue channel, even when it only produces a single file)
         ).first()
