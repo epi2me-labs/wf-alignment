@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.0.1]
+### Fixed
+- The workflow failing due to commas in reference sequence names.
+
+### Changed
+- How samples, reference files, and reference sequence names are listed in the summary section at the beginning of the report.
+
 ## [v1.0.0]
 ### Added
 - Memory requirements for each process.
