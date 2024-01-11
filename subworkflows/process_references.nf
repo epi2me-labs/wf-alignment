@@ -2,14 +2,15 @@ process combine {
     label "wfalignment"
     cpus 1
     memory "2 GB"
-    input: path "reference_*_.fasta"
+    input: path "reference*.fasta"
     output:
         path outfname, emit: fasta
         path "*fai", emit: index
     script:
     outfname = "combined_refs.fasta"
     """
-    cat reference_*_.fasta > $outfname
+    find -name 'reference*.fasta' -exec zcat -f {} + > $outfname
+
     # make sure all sequence IDs are unique
     if [ "\$(grep "^>" $outfname | sort | uniq -d)" ]; then
         echo "Sequence IDs in the reference files must be unique." 1>&2

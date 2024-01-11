@@ -19,7 +19,7 @@ docker-run:
     parallel:
         matrix:
             - MATRIX_NAME: [
-                "fastq", "bam", "ubam"
+                "fastq", "bam", "ubam", "compress-one-ref", "compress-all-refs"
             ]
     rules:
         # NOTE As we're overriding the rules block for the included docker-run
@@ -39,6 +39,17 @@ docker-run:
         - if: $MATRIX_NAME == "ubam"
           variables:
               NF_WORKFLOW_OPTS: "--bam test_data/ubam --references test_data/references \
+                  --counts test_data/counts/ERCC_mix1.csv -executor.\\$$local.memory 12GB"
+        # run on FASTQ again after compressing one / all references
+        - if: $MATRIX_NAME == "compress-one-ref"
+          variables:
+              NF_BEFORE_SCRIPT: "gzip test_data/references/ERCC.fasta"
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references \
+                  --counts test_data/counts/ERCC_mix1.csv -executor.\\$$local.memory 12GB"
+        - if: $MATRIX_NAME == "compress-all-refs"
+          variables:
+              NF_BEFORE_SCRIPT: "gzip test_data/references/*"
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references \
                   --counts test_data/counts/ERCC_mix1.csv -executor.\\$$local.memory 12GB"
 
 aws-run:
