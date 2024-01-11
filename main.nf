@@ -17,8 +17,7 @@ process alignReads {
     label "wfalignment"
     cpus params.threads
     memory {
-        def ref_size = combined_refs.size()
-        ref_size > 2e9 ? "32 GB" : ref_size > 1e8 ? "16 GB" : "2 GB"
+        combined_refs.size() > 1e9 ? "32 GB" : "12 GB"
     }
     input:
         tuple val(meta), path(input)
@@ -122,7 +121,7 @@ process readDepthPerRef {
 process makeReport {
     label "wfalignment"
     cpus 1
-    memory "16 GB"
+    memory "12 GB"
     input:
         path "readstats/*"
         path "flagstat/*"

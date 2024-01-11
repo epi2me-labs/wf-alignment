@@ -220,7 +220,7 @@
         },
         "minimum": {
             "cpus": 6,
-            "memory": "16GB"
+            "memory": "12GB"
         },
         "run_time": "0.5-5 minutes per sample (depending on number of reads, length of reference, and available compute).",
         "arm_support": true
