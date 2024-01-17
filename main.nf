@@ -9,8 +9,8 @@ include { process_references } from "./subworkflows/process_references"
 
 OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
 MINIMAP_ARGS_PRESETS = [
-    "dna": "-ax map-ont",
-    "rna": "-ax splice -uf"
+    "dna": "-ax map-ont -y",
+    "rna": "-ax splice -uf -y"
 ]
 
 process alignReads {
