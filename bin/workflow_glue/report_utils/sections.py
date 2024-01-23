@@ -462,8 +462,11 @@ def depths(report, depth_df):
         with tabs.add_dropdown_menu():
             for ref_file, df_ref_file in depth_df.groupby("ref_file"):
                 # prepare data for depth vs coordinate plot
-                df_depth_vs_coords = df_ref_file.eval("step = end - start").eval(
-                    "total_mean_pos=step.cumsum() - step / 2"
+                df_depth_vs_coords = df_ref_file.eval("step = end - start")
+                # for each sample, get the mean position of each depth window (while
+                # concatenating all the sequences in that ref file)
+                df_depth_vs_coords = df_depth_vs_coords.groupby("sample_name").apply(
+                    lambda df: df.eval("total_mean_pos=step.cumsum() - step / 2")
                 )
                 # prepare data for cumulative depth plot
                 df_cumul_depth = get_relative_cumulative_depths(df_ref_file)
