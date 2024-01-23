@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [Unreleased]
+### Added
+- Produce a MMI index file.
+- `--reference_mmi_file` option to use a pre-generated MMI index file as reference.
+
 ## [v1.0.3]
 ### Fixed
 - Fix regression in depth plots that concatenated the curves of the different samples, rather than displaying them as a multi-line plot
@@ -14,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v1.0.2]
 ### Fixed
 - Regression that caused failing on compressed references.
-- The `alignRead` process requesting too little memory in some cases.
+- The `alignReads` process requesting too little memory in some cases.
 
 ### Changed
 - Reduced the minimum memory requirement from 16 to 12 GB.

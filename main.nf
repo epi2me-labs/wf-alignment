@@ -13,6 +13,46 @@ MINIMAP_ARGS_PRESETS = [
     "rna": "-ax splice -uf -y"
 ]
 
+// Create an MMI index
+process makeMMIndex {
+    label "wfalignment"
+    cpus params.threads
+    memory {
+        def ref_size = combined_refs.size()
+        combined_refs.size() > 1e9 ? "32 GB" : "12 GB"
+    }
+    input:
+        path combined_refs, stageAs: "combined_references.fasta"
+        val minimap_args
+    output:
+        path "combined_references.mmi"
+    script:
+    """
+    minimap2 -t $task.cpus $minimap_args -d combined_references.mmi combined_references.fasta
+    """
+}
+
+// Check if an MMI file contains the same references as the FASTA reference file.
+process checkReferences {
+    label "wfalignment"
+    cpus params.threads
+    memory {
+        def ref_size = combined_refs.size()
+        combined_refs.size() > 1e9 ? "32 GB" : "12 GB"
+    }
+    input:
+        path "combined_references.mmi"
+        path "combined_refs.fasta.fai"
+        path combined_refs, stageAs: "combined_references.fasta"
+    output:
+        val true
+    script:
+    """
+    # Read MMI references and check if they are in the FASTA fai file.
+    workflow-glue check_reference_index --mmi_file combined_references.mmi --fasta_fai combined_refs.fasta.fai
+    """
+}
+
 process alignReads {
     label "wfalignment"
     cpus params.threads
@@ -202,13 +242,30 @@ workflow pipeline {
         workflow_params = getParams()
         software_versions = getVersions()
 
+        // minimap2 args
+        String minimap_args
+        minimap_args = params.minimap_args ?: \
+            MINIMAP_ARGS_PRESETS[params.minimap_preset]
+
         // handle references
+        // if params.references contains MMI index file
+        // use this as reference
+        combined_mmi_file = Channel.of(OPTIONAL_FILE)
+        // Process references although input is an MMI index
+        // as Jbrowse needs the processed FASTA file
         refs = process_references(params.references)
+        if (params.reference_mmi_file) {
+            log.info("Using the provided MMI index as reference.")
+            log.info("Indexing parameters (-k, -w or -H) will be overridden by parameters used in the prebuilt index.")
+            minimap_reference = Channel.fromPath(params.reference_mmi_file, checkIfExists: true).first()
+            // make sure mmi index contains the same references as the fasta
+            checkReferences(minimap_reference, refs.combined_index, refs.combined)
+        } else {
+            minimap_reference = makeMMIndex(refs.combined, minimap_args)
+        }
 
         sample_data = sample_data
         | map { meta, path, stats -> [meta, path] }
-
-        String minimap_args
 
         if (params.bam) {
             ch_branched = sample_data.branch { meta, bam ->
@@ -224,16 +281,10 @@ workflow pipeline {
             bam = Channel.empty()
         }
 
-        // run minimap
-        if (! MINIMAP_ARGS_PRESETS.containsKey(params.minimap_preset)) {
-            error "'--minimap_preset' needs to be one of " +
-                "${MINIMAP_ARGS_PRESETS.keySet()}."
-        }
-        minimap_args = params.minimap_args ?: \
-            MINIMAP_ARGS_PRESETS[params.minimap_preset]
+        // run minimap        
         bam = bam
         | mix(
-            alignReads(ch_to_align, refs.combined, params.bam as boolean, minimap_args)
+            alignReads(ch_to_align, minimap_reference, params.bam as boolean, minimap_args)
         )
         | indexBam
 
@@ -267,6 +318,7 @@ workflow pipeline {
         software_versions
         combined_ref = refs.combined
         combined_ref_index = refs.combined_index
+        combined_ref_mmi_file = minimap_reference
 }
 
 
