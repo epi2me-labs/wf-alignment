@@ -24,6 +24,14 @@
       "optional": false,
       "type": "aggregated"
     },
+    "references-mmi-index": {
+      "filepath": "./combined-refs.mmi",
+      "title": "Combined references MMI index",
+      "description": "Minimap2 index file for combined references FASTA.",
+      "mime-type": "application/octet-stream",
+      "optional": false,
+      "type": "aggregated"
+    },
     "per-read-bamstats": {
       "filepath": "./{{ alias }}.readstats.tsv",
       "title": "Per-read alignment stats",

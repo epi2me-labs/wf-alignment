@@ -5,6 +5,7 @@ Output files may be aggregated including information for all samples or provided
 | workflow report | ./wf-alignment-report.html | Report for all samples | aggregated |
 | Combined references | ./combined-refs.fasta | FASTA file containing all input references. | aggregated |
 | Combined references index | ./combined-refs.fasta.fai | Index file for combined references FASTA. | aggregated |
+| Combined references MMI index | ./combined-refs.mmi | Minimap2 index file for combined references FASTA. | aggregated |
 | Per-read alignment stats | ./{{ alias }}.readstats.tsv | Bamstats per-read output TSV file. | per-sample |
 | Per-reference alignment stats | ./{{ alias }}.flagstat.tsv | Bamstats flagstat output TSV file. | per-sample |
 | Alignments BAM file | ./{{ alias }}.sorted.aligned.bam | BAM file with alignments of filtered input reads against the combined references. | per-sample |
