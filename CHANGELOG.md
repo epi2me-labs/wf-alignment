@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Produce a MMI index file.
 - `--reference_mmi_file` option to use a pre-generated MMI index file as reference.
 
+### Removed
+- The limit of `20` for the `--threads` parameter.
+
 ## [v1.0.3]
 ### Fixed
 - Fix regression in depth plots that concatenated the curves of the different samples, rather than displaying them as a multi-line plot
