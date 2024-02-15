@@ -23,7 +23,7 @@ process combine {
 process fx2tab {
     label "wfalignment"
     cpus 1
-    memory { reference.size() > 1e9 ? "16 GB" : "2 GB" }
+    memory { reference.size() > 1e9 ? "15 GB" : "2 GB" }
     input:
         path reference
     output:

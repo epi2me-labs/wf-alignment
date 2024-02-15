@@ -19,7 +19,7 @@ process makeMMIndex {
     cpus params.threads
     memory {
         def ref_size = combined_refs.size()
-        combined_refs.size() > 1e9 ? "32 GB" : "12 GB"
+        combined_refs.size() > 1e9 ? "31 GB" : "11 GB"
     }
     input:
         path combined_refs, stageAs: "combined_references.fasta"
@@ -38,7 +38,7 @@ process checkReferences {
     cpus params.threads
     memory {
         def ref_size = combined_refs.size()
-        combined_refs.size() > 1e9 ? "32 GB" : "12 GB"
+        combined_refs.size() > 1e9 ? "31 GB" : "11 GB"
     }
     input:
         path "combined_references.mmi"
@@ -57,7 +57,7 @@ process alignReads {
     label "wfalignment"
     cpus params.threads
     memory {
-        combined_refs.size() > 1e9 ? "32 GB" : "12 GB"
+        combined_refs.size() > 1e9 ? "31 GB" : "11 GB"
     }
     input:
         tuple val(meta), path(input)
@@ -135,7 +135,7 @@ process readDepthPerRef {
     // TODO: check if parallelisation with `xargs` or `parallel` is more efficient
     label "wfalignment"
     cpus 3
-    memory "8 GB"
+    memory "7 GB"
     input:
         tuple val(meta), path(alignment), path(index)
         path ref_len
@@ -161,7 +161,7 @@ process readDepthPerRef {
 process makeReport {
     label "wfalignment"
     cpus 1
-    memory "12 GB"
+    memory "11 GB"
     input:
         path "readstats/*"
         path "flagstat/*"
@@ -345,7 +345,7 @@ process output {
 process configure_jbrowse {
     label "wfalignment"
     cpus 1
-    memory { reference.size() > 1e9 ? "16 GB" : "2 GB" }
+    memory { reference.size() > 1e9 ? "15 GB" : "2 GB" }
     input:
         path(alignments)
         path(indexes)
