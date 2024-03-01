@@ -169,15 +169,23 @@ def summary(report, sample_names, ref_files, ref_seqs, stats_df, flagstat_df):
             quickly jump to an individual section with the links in the header bar.
             """
         )
+        # we don't want to list all sample names / ref files / ref seq IDs as there
+        # might be hundreds; we thus only show the first 7 and `, ...`
+        sample_names_str = "&emsp;".join(sample_names[:7]) + (
+            "&emsp;..." if len(sample_names) > 7 else ""
+        )
+        ref_files_str = "&emsp;".join(ref_files[:7]) + (
+            "&emsp;..." if len(ref_files) > 7 else ""
+        )
         ref_seqs_str = "&emsp;".join(ref_seqs[:7]) + (
             "&emsp;..." if len(ref_seqs) > 7 else ""
         )
         dom_util.raw(
             f"""
             <b>{len(sample_names)} {plural_s("sample", len(sample_names))}:</b><br>
-            {'&emsp;'.join(sample_names)}<br><br>
+            {sample_names_str}<br><br>
             <b>{len(ref_files)} {plural_s("reference file", len(ref_files))}:</b><br>
-            {'&emsp;'.join(ref_files)}<br><br>
+            {ref_files_str}<br><br>
             <b>{len(ref_seqs)} {plural_s("reference sequence", len(ref_seqs))}:</b><br>
             {ref_seqs_str}<br><br>
             """
