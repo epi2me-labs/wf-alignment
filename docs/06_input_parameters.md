@@ -39,7 +39,7 @@
 
 | Nextflow parameter name  | Type | Description | Help | Default |
 |--------------------------|------|-------------|------|---------|
-| threads | integer | Number of CPU threads to use for the alignment step. | The alignment process will run with this many threads (note that the memory used by minimap2 scales with the number of threads). The total CPU resources used by the workflow are constrained by the executor configuration and can be modified by changing `nextflow.config` or supplying an additional config file. | 4 |
+| threads | integer | Number of CPU threads to use for the alignment step. | The alignment process will run with this many threads (note that the memory used by minimap2 scales with the number of threads). The total CPU resources used by the workflow are constrained by the Nextflow executor configuration. | 4 |
 | disable_ping | boolean | Enable to prevent sending a workflow ping. |  | False |
 
 
