@@ -230,6 +230,24 @@ process getParams {
 }
 
 
+// this is only a temporary shim to make the template changes work.
+// TODO: remove in the next MR (when dropping JBrowse for IGV)
+process renameBamFiles {
+    label "wfalignment"
+    cpus 1
+    memory "2 GB"
+    input: tuple val(meta),
+        path("${meta.alias}.sorted.aligned.bam"),
+        path("${meta.alias}.sorted.aligned.bam.bai")
+    output: tuple val(meta),
+        path("*.bam", includeInputs: true),
+        path("*.bai", includeInputs: true)
+    script:
+    """
+    """
+}
+
+
 // workflow module
 workflow pipeline {
     take:
@@ -264,32 +282,35 @@ workflow pipeline {
             minimap_reference = makeMMIndex(refs.combined, minimap_args)
         }
 
-        sample_data = sample_data
-        | map { meta, path, stats -> [meta, path] }
-
         if (params.bam) {
-            ch_branched = sample_data.branch { meta, bam ->
+            ch_branched = sample_data.branch { meta, bam, bai, stats ->
                 to_align: meta["is_unaligned"]
                 aligned: true
             }
             ch_to_align = ch_branched.to_align
-            // `xam_ingress` sorts the BAMs, so we don't have to
+            | map { meta, bam, bai, stats -> [meta, bam] }
+            // we ran ingress with `stats: false`, so we can drop `stats` (which would
+            // only be `null`) here
             bam = ch_branched.aligned
+            | map { meta, bam, bai, stats -> [meta, bam, bai] }
+            | renameBamFiles
         } else {
             // FASTQ input
             ch_to_align = sample_data
+            | map { meta, fastq, stats -> [meta, fastq] }
             bam = Channel.empty()
         }
 
-        // run minimap        
+        // run minimap
         bam = bam
         | mix(
             alignReads(ch_to_align, minimap_reference, params.bam as boolean, minimap_args)
+            | indexBam
         )
-        | indexBam
 
-        // get stats
-        stats = bamstats(bam)
+        // get stats and rename files to start with alias
+        stats = bam
+        | bamstats
 
         // determine read_depth per reference / bam file if requested
         depth_per_ref = Channel.of(OPTIONAL_FILE)
