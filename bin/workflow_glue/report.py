@@ -56,6 +56,7 @@ def main(args):
         args.name,
         args.params,
         args.versions,
+        workflow_version=args.wf_version,
     )
     # add sections
     sections.summary(report, sample_names, ref_files, ref_seqs, stats_df, flagstat_df)
@@ -116,15 +117,8 @@ def argparser():
         help="CSV file with software versions",
     )
     parser.add_argument(
-        # TODO: implement
-        "--revision",
-        default="unknown",
-        help="git branch/tag of the executed workflow",
-    )
-    parser.add_argument(
-        # TODO: implement
-        "--commit",
-        default="unknown",
-        help="git commit of the executed workflow",
+        "--wf-version",
+        default="unknown version",
+        help="Workflow version",
     )
     return parser
