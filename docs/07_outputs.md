@@ -10,3 +10,4 @@ Output files may be aggregated including information for all samples or provided
 | Per-reference alignment stats | ./{{ alias }}.flagstat.tsv | Bamstats flagstat output TSV file. | per-sample |
 | Alignments BAM file | ./{{ alias }}.sorted.aligned.bam | BAM file with alignments of filtered input reads against the combined references. | per-sample |
 | Alignments index file | ./{{ alias }}.sorted.aligned.bam.bai | Index for alignments BAM file. | per-sample |
+| IGV config JSON file | ./igv.json | JSON file with IGV config options to be used by the EPI2ME Desktop Application. | aggregated |

@@ -36,7 +36,7 @@ docker-run:
           variables:
               NF_WORKFLOW_OPTS: "--bam test_data/bam --references test_data/references \
                   --counts test_data/counts/ERCC_mix1.csv -executor.\\$$local.memory 12GB"
-              NF_IGNORE_PROCESSES: alignReads,checkReferences,indexBam
+              NF_IGNORE_PROCESSES: alignReads,checkReferences
         - if: $MATRIX_NAME == "ubam"
           variables:
               NF_WORKFLOW_OPTS: "--bam test_data/ubam --references test_data/references \

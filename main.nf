@@ -4,6 +4,7 @@ import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
 include { fastq_ingress; xam_ingress; } from "./lib/ingress"
+include { configure_igv } from "./lib/common"
 include { process_references } from "./subworkflows/process_references"
 
 
@@ -65,10 +66,8 @@ process alignReads {
         val is_xam
         val minimap_args
     output:
-        tuple val(meta), path(bam_name)
+        tuple val(meta), path("aligned.sorted.bam"), path("aligned.sorted.bam.bai")
     script:
-        def sample_name = meta["alias"]
-        bam_name = "${sample_name}.sorted.aligned.bam"
         int sorting_threads = Math.min((task.cpus / 3) as int, 3)
         int mapping_threads = task.cpus - sorting_threads
         // the minimum for `params.threads` in the schema is `4` and we should have
@@ -78,21 +77,8 @@ process alignReads {
     """
     ${is_xam ? "samtools fastq -T '*' $input" : "cat $input"} \
     | minimap2 -t $mapping_threads $minimap_args $combined_refs - \
-    | samtools sort -@ ${sorting_threads - 1} -o $bam_name -
-    """
-}
-
-process indexBam {
-    label "wfalignment"
-    cpus 1
-    memory "2 GB"
-    input:
-        tuple val(meta), path(bam)
-    output:
-        tuple val(meta), path(bam), path("*.bai")
-    script:
-    """
-    samtools index $bam
+    | samtools sort --write-index -@ ${sorting_threads - 1} \
+        -o aligned.sorted.bam##idx##aligned.sorted.bam.bai
     """
 }
 
@@ -125,8 +111,11 @@ process addStepsColumn {
     #!/usr/bin/env python
     import pandas as pd
     all = pd.read_csv('lengths.tsv', sep='\\t')
-    all["step"] = all["lengths"]//200
-    all = all.replace(0, 1)
+    # the number of depth windows and maximum depth window size are determined
+    # in `params.wf`
+    all["step"] = (all["lengths"] // $params.wf.num_depth_windows).clip(
+        1, $params.wf.max_depth_window_size
+    )
     all.to_csv('lengths_with_steps.tsv', index=False, header=False, sep='\\t')
     """
 }
@@ -140,7 +129,7 @@ process readDepthPerRef {
         tuple val(meta), path(alignment), path(index)
         path ref_len
     output:
-        path outfname
+        tuple val(meta), path(outfname), env(max_depth_and_locus)
     script:
         def sample_name = meta["alias"]
         outfname = "${sample_name}.all_regions.bed.gz"
@@ -155,6 +144,12 @@ process readDepthPerRef {
 
     # remove all the temp files
     find -name '${sample_name}.*.temp*' -delete
+
+    # find the window with the highest depth (to be used as initial region to display in
+    # the IGV panel)
+    max_depth_and_locus=\$(
+        workflow-glue get_max_depth_locus $outfname $params.wf.max_depth_window_size
+    )
     """
 }
 
@@ -194,7 +189,6 @@ process makeReport {
     """
 }
 
-
 process getVersions {
     label "wfalignment"
     cpus 1
@@ -215,7 +209,6 @@ process getVersions {
     """
 }
 
-
 process getParams {
     label "wfalignment"
     cpus 1
@@ -227,24 +220,6 @@ process getParams {
     """
     # Output nextflow params object to JSON
     echo '$paramsJSON' > params.json
-    """
-}
-
-
-// this is only a temporary shim to make the template changes work.
-// TODO: remove in the next MR (when dropping JBrowse for IGV)
-process renameBamFiles {
-    label "wfalignment"
-    cpus 1
-    memory "2 GB"
-    input: tuple val(meta),
-        path("${meta.alias}.sorted.aligned.bam"),
-        path("${meta.alias}.sorted.aligned.bam.bai")
-    output: tuple val(meta),
-        path("*.bam", includeInputs: true),
-        path("*.bai", includeInputs: true)
-    script:
-    """
     """
 }
 
@@ -294,7 +269,6 @@ workflow pipeline {
             // only be `null`) here
             bam = ch_branched.aligned
             | map { meta, bam, bai, stats -> [meta, bam, bai] }
-            | renameBamFiles
         } else {
             // FASTQ input
             ch_to_align = sample_data
@@ -306,19 +280,53 @@ workflow pipeline {
         bam = bam
         | mix(
             alignReads(ch_to_align, minimap_reference, params.bam as boolean, minimap_args)
-            | indexBam
         )
 
-        // get stats and rename files to start with alias
-        stats = bam
-        | bamstats
+        // get the sample names and sort them
+        sample_names = bam
+        | map { meta, bam, bai -> meta.alias }
+        | toSortedList
+
+        // get stats
+        stats = bamstats(bam)
 
         // determine read_depth per reference / bam file if requested
         depth_per_ref = Channel.of(OPTIONAL_FILE)
+        igv_locus = Channel.of(null)
         if (depth_coverage) {
             // add step column to ref lengths
             ref_lengths_with_steps = addStepsColumn(refs.lengths_combined)
             depth_per_ref = readDepthPerRef(bam, ref_lengths_with_steps)
+            | map { meta, depths, max_depth_and_locus -> depths }
+
+            // decide which locus to show in the initial view of the IGV panel as
+            // follows:
+            // * get the locus with the largest depth for each sample
+            // * iterate over the samples and pick the first locus that has more depth
+            //   than `params.wf.igv_locus_depth_threshold`
+            igv_locus = readDepthPerRef.out
+            | map { meta, depths, max_depth_and_locus ->
+                (depth, locus) = max_depth_and_locus.split()
+                [meta.alias, depth as float, locus]
+            }
+            | toList
+            // collect the max depths and loci in a map with the sample names as keys
+            | map {
+                it.collectEntries { alias, depth, locus -> [alias, [locus, depth]] }
+            }
+            // combine the map with the list of sample names (as these are in the right
+            // order); we use `cross` with an empty closure here because `combine`
+            // flattens its input channels
+            | cross(sample_names) { }
+            | map { per_sample_max_depth_loci, sample_names ->
+                for (sample in sample_names) {
+                    (locus, depth) = per_sample_max_depth_loci[sample] ?: [null, null]
+                    if (depth > params.wf.igv_locus_depth_threshold) {
+                        return locus
+                    }
+                }
+            }
+            | ifEmpty(null)
         }
 
         report = makeReport(
@@ -330,12 +338,30 @@ workflow pipeline {
             software_versions,
             workflow_params,
         )
+
+        // create IGV config file
+        igv_conf = configure_igv(
+            Channel.empty()
+            | concat(
+                refs.combined.name,
+                refs.combined_index.name,
+                sample_names | map { list -> list.collect {
+                    [ "${it}.sorted.aligned.bam", "${it}.sorted.aligned.bam.bai" ]
+                } }
+            )
+            | flatten
+            | collectFile(newLine: true, sort: false),
+            igv_locus,
+            [displayMode: "SQUISHED", colorBy: "strand"],
+            Channel.of(null),
+        )
+
     emit:
-        alignments = bam.map { it[1] }
-        indices = bam.map{ it[2] }
+        bam
         per_read_stats = stats.read_stats
         per_file_stats = stats.flagstat
         report
+        igv_conf
         params_json = workflow_params
         software_versions
         combined_ref = refs.combined
@@ -353,44 +379,17 @@ process output {
     memory "2 GB"
     // publish inputs to output directory
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*", saveAs: {
-        f -> params.prefix ? "${params.prefix}-${f}" : "${f}" }
+        // publish with `fname` as filename (unless it's `null`; then just use the
+        // current filename)
+        fname = fname ?: f.name
+        params.prefix ? "${params.prefix}-${fname}" : "${fname}"
+    }
     input:
-        path fname
+        tuple path(f), val(fname)
     output:
-        path fname
+        path f
     """
     echo "Writing output files"
-    """
-}
-
-
-process configure_jbrowse {
-    label "wfalignment"
-    cpus 1
-    memory { reference.size() > 1e9 ? "15 GB" : "2 GB" }
-    input:
-        path(alignments)
-        path(indexes)
-        path(reference)
-        path(ref_idx)
-    output:
-        path("jbrowse.json")
-    script:
-    ArrayList alignment_args = []
-    int i = 0;
-    for(a in alignments) {
-        // don't be fooled into iterating over bam.size() here
-        // when the cardinality is 1, bam.size() returns the filesize of the bam!
-        this_bam = a
-        this_bai = indexes[i]
-        alignment_args << "--alignment '${params.out_dir}/${this_bam.name}' '${params.out_dir}/${this_bai.name}'"
-        i++;
-    }
-    String alignment_args_str = alignment_args.join(' ')
-    """
-    workflow-glue configure_jbrowse \
-        --reference '${reference}' '${params.out_dir}/${reference.name}' '${params.out_dir}/${ref_idx.name}' \
-        ${alignment_args_str} > jbrowse.json
     """
 }
 
@@ -423,14 +422,25 @@ workflow {
         sample_data, params.references, counts, params.depth_coverage
     )
 
-    // create jbrowse file
-    jb2_conf = configure_jbrowse(
-        results.alignments.collect(),
-        results.indices.collect(),
+    Channel.empty().mix(
+        results.per_read_stats,
+        results.per_file_stats,
+        results.report,
+        results.igv_conf,
+        results.params_json,
+        results.software_versions,
         results.combined_ref,
-        results.combined_ref_index
+        results.combined_ref_index,
+        results.combined_ref_mmi_file,
     )
-    jb2_conf.concat(results)
+    | map { [it, null] }
+    | mix (
+        results.bam
+        | flatMap { meta, bam, bai -> [
+            [bam, "${meta.alias}.sorted.aligned.bam"],
+            [bai, "${meta.alias}.sorted.aligned.bam.bai"],
+        ]}
+    )
     | output
 }
 

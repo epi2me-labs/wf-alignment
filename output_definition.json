@@ -63,6 +63,14 @@
       "mime-type": "application/octet-stream",
       "optional": false,
       "type": "per-sample"
+    },
+    "igv-config": {
+      "filepath": "./igv.json",
+      "title": "IGV config JSON file",
+      "description": "JSON file with IGV config options to be used by the EPI2ME Desktop Application.",
+      "mime-type": "application/json",
+      "optional": false,
+      "type": "aggregated"
     }
   }
 }
