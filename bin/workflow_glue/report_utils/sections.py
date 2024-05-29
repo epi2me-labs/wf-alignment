@@ -575,11 +575,9 @@ def counts(report, flagstat_df, counts, sanitizer):
                         plt.yAxis.scale = True
 
                         # add ref IDs as tooltips
-                        plt.dataset[0].source = (
-                            log_counts_df.reset_index()
-                            .eval("hue = None")[["exp", "obs", "hue", "ref"]]
-                            .values
-                        )
+                        plt.dataset[0].source = np.hstack((
+                            plt.dataset[0].source, log_counts_df.index.values[:, None]
+                        ))
                         plt.dataset[0].dimensions = ["x", "y", "hue", "tooltip"]
                         plt.series[0].encode["tooltip"] = "tooltip"
                         plt.tooltip = {"trigger": "item"}

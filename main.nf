@@ -159,7 +159,7 @@ process readDepthPerRef {
 }
 
 process makeReport {
-    label "wfalignment"
+    label "wf_common"
     cpus 1
     memory "11 GB"
     input:
@@ -188,6 +188,7 @@ process makeReport {
         --refnames_dir refnames \
         --versions $versions \
         --params $params \
+        --wf-version $workflow.manifest.version \
         $depth_args \
         $counts_args
     """
@@ -429,7 +430,8 @@ workflow {
         results.combined_ref,
         results.combined_ref_index
     )
-    output(jb2_conf.concat(results))
+    jb2_conf.concat(results)
+    | output
 }
 
 workflow.onComplete {
