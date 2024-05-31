@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 """Report using ezcharts."""
 
+from pathlib import Path
+
 from ezcharts.components.reports import labs
+import pandas as pd
 
 from .report_utils import read_data, sanitizer, sections  # noqa: ABS101
 
@@ -14,31 +17,36 @@ def main(args):
     """Run entry point."""
     logger = get_named_logger("report")
 
-    # read input stats data
-    stats_df = read_data.bamstats(args.stats_dir)
-    sample_names = stats_df["sample_name"].cat.categories
-    flagstat_df = read_data.flagstat(args.flagstat_dir)
+    per_sample_dirs = sorted(args.data.glob("*"))
+
+    flagstat_df = pd.concat(
+        (
+            read_data.flagstat(sample_dir).assign(sample_name=sample_dir.name)
+            for sample_dir in per_sample_dirs
+        )
+    ).astype({"sample_name": "category"})
+
     # read the ref names (i.e. get a dict mapping ref names to the ref file)
     refname2reffile = read_data.refnames(args.refnames_dir)
-    ref_files = sorted(set(refname2reffile.values()) - set(['unmapped']))
-    ref_seqs = sorted(set(refname2reffile.keys()) - set(['*']))
+    ref_files = sorted(set(refname2reffile.values()) - set(["unmapped"]))
+    ref_seqs = sorted(set(refname2reffile.keys()) - set(["*"]))
     # read depth info if available
-    depth_df = None
-    if args.depths_dir is not None:
-        sample_names = stats_df["sample_name"].cat.categories
-        depth_df = read_data.depths(args.depths_dir, sample_names)
+    try:
+        depth_df = pd.concat(
+            (read_data.depths(d).assign(sample_name=d.name) for d in per_sample_dirs)
+        ).astype({"sample_name": "category"})
+    except AttributeError:
+        depth_df = None
     # read counts if available
     counts = read_data.counts(args.counts) if args.counts is not None else None
 
     # add a column with the respective ref. files to the stats dataframes
-    for df in (stats_df, flagstat_df, depth_df):
+    for df in (flagstat_df, depth_df):
         if df is None:
             continue
         try:
             df["ref_file"] = (
-                df["ref"]
-                .apply(lambda ref: refname2reffile[ref])
-                .astype(read_data.CATEGORICAL)
+                df["ref"].apply(lambda ref: refname2reffile[ref]).astype("category")
             )
         except KeyError as e:
             (missing_ref,) = e.args
@@ -47,28 +55,23 @@ def main(args):
                 f"reference files {ref_files}."
             )
 
-    # extract the mapped reads and some other metrics used in the report sections
-    stats_df_mapped = stats_df.query('ref != "*"')
-
     # create the report
     report = labs.LabsReport(
-        f"{args.name} report",
-        args.name,
+        "wf-alignment report",
+        "wf-alignment",
         args.params,
         args.versions,
         workflow_version=args.wf_version,
     )
     # add sections
-    sections.summary(report, sample_names, ref_files, ref_seqs, stats_df, flagstat_df)
-    sections.quality(report, stats_df, sanitizer)
-    sections.accuracy(report, stats_df_mapped, sanitizer)
-    sections.read_coverage(report, stats_df_mapped, sanitizer)
+    sections.summary(report, per_sample_dirs, ref_files, ref_seqs, flagstat_df)
+    sections.seqsum(report, per_sample_dirs)
     if depth_df is not None:
         sections.depths(report, depth_df)
     if counts is not None:
         sections.counts(report, flagstat_df, counts, sanitizer)
     # "de-sanitize" the report and write to the output file
-    report_fname = f"{args.name}-report.html"
+    report_fname = "wf-alignment-report.html"
     with open(report_fname, "w") as report_file:
         report_file.write(sanitizer.desanitise_report(str(report)))
 
@@ -79,25 +82,13 @@ def argparser():
     """Argument parser for entrypoint."""
     parser = wf_parser("report")
     parser.add_argument(
-        "--name",
-        help="report name",
-    )
-    parser.add_argument(
-        "--stats_dir",
-        help="directory with `bamstats` per-read stats",
-    )
-    parser.add_argument(
-        "--flagstat_dir",
-        help="directory with `bamstats` per-file stats",
+        "--data",
+        type=Path,
+        help="directory with per-sample data (with a sub-directory for each sample)",
     )
     parser.add_argument(
         "--refnames_dir",
         help="directory with files containing reference names",
-    )
-    parser.add_argument(
-        "--depths_dir",
-        required=False,
-        help="directory with depth files",
     )
     parser.add_argument(
         "--counts",

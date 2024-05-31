@@ -1,4 +1,5 @@
 """Sections for ezcharts report."""
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -11,45 +12,9 @@ from ezcharts.components import fastcat
 from ezcharts.components.ezchart import EZChart
 from ezcharts.layout.snippets import Grid, Progress, Tabs
 
+from . import read_data  # noqa: ABS101
+
 THEME = "epi2melabs"
-
-
-def histogram_with_mean_and_median(
-    series,
-    title=None,
-    x_axis_name=None,
-    y_axis_name=None,
-    bins=50,
-    round_digits=1,
-):
-    """Create ezcharts histogram showing the mean and median underneath the plot title.
-
-    :param series: `pd.Series` with data to plot
-    :param title: plot title, defaults to None
-    :param x_axis_name: x axis label, defaults to None
-    :param y_axis_name: y axis label, defaults to None
-    :param bins: number of bins, defaults to 50
-    :param round_digits: number of decimals to round the mean and median values to,
-        defaults to 1
-    :raises ValueError: Raise error if `series` is not a `pd.Series`
-    :return: the histogram (`ezcharts.plots.Plot`)
-    """
-    if not isinstance(series, pd.Series):
-        raise ValueError("`series` must be `pd.Series`.")
-
-    plt = ezc.histplot(data=series, bins=bins)
-    plt.title = dict(
-        text=title,
-        subtext=(
-            f"Mean: {series.mean().round(round_digits)}. "
-            f"Median: {series.median().round(round_digits)}"
-        ),
-    )
-    if x_axis_name is not None:
-        plt.xAxis.name = x_axis_name
-    if y_axis_name is not None:
-        plt.yAxis.name = y_axis_name
-    return plt
 
 
 def sub_heading(string):
@@ -72,24 +37,29 @@ def plural_s(string, n):
 
 
 def get_summary_table(
-    stats_df, flagstat_df, n_ref_seqs, n_reads_total, n_bases_total, secondary=False
+    n_reads,
+    n_bases,
+    flagstat_df,
+    n_ref_seqs,
+    n_reads_total,
+    n_bases_total,
+    secondary=False,
 ):
     """Create table with summary statistics.
 
-    :param stats_df: `pd.DataFrame` with bamstats per-read stats
+    :param n_reads: number of reads
+    :param n_bases: number of sequenced bases
     :param flagstat_df: `pd.DataFrame` with bamstats per-file stats
     :param n_ref_seqs: total number of reference sequences
     :param n_reads_total: total number of reads
     :param n_bases_total: total number of sequenced bases
-    :param secondary: _description_, defaults to False
+    :param secondary: set `bar_cls` of progress bars to 'bg-secondary'
     """
     # get metrics
     n_detected_ref_seqs = (
         flagstat_df.query('ref != "*"').groupby("ref", observed=True)["total"].sum() > 0
     ).sum()
-    n_reads = stats_df.shape[0]
     n_unmapped = flagstat_df["unmapped"].sum()
-    n_bases = stats_df["read_length"].sum()
     # get percentages
     perc_detected_refs = n_detected_ref_seqs / n_ref_seqs * 100
     perc_reads = n_reads / n_reads_total * 100
@@ -148,14 +118,14 @@ def get_summary_table(
             percentage_table_cell(perc_bases)
 
 
-def summary(report, sample_names, ref_files, ref_seqs, stats_df, flagstat_df):
-    """Create summary section.
+def summary(report, per_sample_dirs, ref_files, ref_seqs, flagstat_df):
+    """Create introduction section.
 
     :param report: report object (`ezcharts.components.reports.labs.LabsReport`)
-    :param sample_names: collection of sample names
+    :param per_sample_dirs: collection of directories with per-sample result files (i.e.
+        one directory per sample)
     :param ref_files: collection of reference file names
     :param ref_seqs: collection of reference sequence names
-    :param stats_df: `pd.DataFrame` with bamstats per-read stats
     :param flagstat_df: `pd.DataFrame` with bamstats per-file stats
     """
     with report.add_section("Summary", "Summary"):
@@ -169,6 +139,7 @@ def summary(report, sample_names, ref_files, ref_seqs, stats_df, flagstat_df):
             quickly jump to an individual section with the links in the header bar.
             """
         )
+        sample_names = [d.name for d in per_sample_dirs]
         # we don't want to list all sample names / ref files / ref seq IDs as there
         # might be hundreds; we thus only show the first 7 and `, ...`
         sample_names_str = "&emsp;".join(sample_names[:7]) + (
@@ -190,8 +161,26 @@ def summary(report, sample_names, ref_files, ref_seqs, stats_df, flagstat_df):
             {ref_seqs_str}<br><br>
             """
         )
-        n_reads_total = stats_df.shape[0]
-        n_bases_total = stats_df["read_length"].sum()
+
+        # read the length histograms to get the number of reads and bases for each
+        # sample (and the totals as well)
+        length_hist_dict = {
+            sample_dir.name: read_data.length_hist(sample_dir)
+            for sample_dir in per_sample_dirs
+        }
+        n_reads_dict = {
+            sample_name: length_hist_dict[sample_name]["count"].sum()
+            for sample_name in sample_names
+        }
+        n_bases_dict = {
+            sample_name: (length_hist_dict[sample_name].eval("start * count")).sum()
+            for sample_name in sample_names
+        }
+
+        n_reads_total = sum(hist["count"].sum() for hist in length_hist_dict.values())
+        n_bases_total = sum(
+            (hist["start"] * hist["count"]).sum() for hist in length_hist_dict.values()
+        )
         tabs = Tabs()
         # one tab for summary stats of all samples combined; one tab with dropdown per
         # sample (if we only got a single sample, the second tab won't be a dropdown
@@ -199,7 +188,8 @@ def summary(report, sample_names, ref_files, ref_seqs, stats_df, flagstat_df):
         with tabs.add_tab("total"):
             # summary table for all samples
             get_summary_table(
-                stats_df,
+                n_reads_total,
+                n_bases_total,
                 flagstat_df,
                 len(ref_seqs),
                 n_reads_total,
@@ -211,7 +201,8 @@ def summary(report, sample_names, ref_files, ref_seqs, stats_df, flagstat_df):
                 with tabs.add_dropdown_tab(sample_name):
                     # summary table for an individual sample
                     get_summary_table(
-                        stats_df.query(f"sample_name == '{sample_name}'"),
+                        n_reads_dict[sample_name],
+                        n_bases_dict[sample_name],
                         flagstat_df.query(f"sample_name == '{sample_name}'"),
                         len(ref_seqs),
                         n_reads_total,
@@ -219,205 +210,24 @@ def summary(report, sample_names, ref_files, ref_seqs, stats_df, flagstat_df):
                         secondary=True,
                     )
 
-        # fastcat / bamstats summary
-        sub_heading("Reads Summary")
-        tabs = Tabs()
-        with tabs.add_dropdown_menu():
-            for sample_name, sample_df in stats_df.groupby(
-                "sample_name", observed=True
-            ):
-                with tabs.add_dropdown_tab(sample_name):
-                    with Grid():
-                        # read length plot
-                        read_len_plt = fastcat.read_length_plot(
-                            sample_df, xlim=(0, 0.99), quantile_limits=True
-                        )
-                        read_len_plt.xAxis.min = 0
-                        read_len_plt.xAxis.max = round(float(read_len_plt.xAxis.max), 2)
-                        EZChart(read_len_plt, theme=THEME)
-                        # base yield plot
-                        yield_plt = fastcat.base_yield_plot(sample_df)
-                        # set the x-axis limit to match the read length histogram
-                        yield_plt.xAxis.max = read_len_plt.xAxis.max
-                        yield_plt.tooltip = None
-                        EZChart(yield_plt, theme=THEME)
 
-
-def quality(report, stats_df, sanitizer):
-    """Create read quality section.
+def seqsum(report, per_sample_dirs):
+    """Get ezcharts fastcat.SeqSummary.
 
     :param report: report object (`ezcharts.components.reports.labs.LabsReport`)
-    :param stats_df: `pd.DataFrame` with bamstats per-read stats
-    :param sanitizer: `sanitizer.Sanitizer` for sanitizing strings passed to ezcharts
+    :param per_sample_dirs: collection of directories with per-sample result files (i.e.
+        one directory per sample)
     """
-    with report.add_section("Mean read quality", "Quality"):
-        with Grid():
-            # quality per sample
-            with dom_tags.div():
-                sub_heading("Per sample:")
-                tabs = Tabs()
-                with tabs.add_dropdown_menu():
-                    for grp_name, df in stats_df.groupby("sample_name", observed=True):
-                        grp_name = sanitizer(grp_name)
-                        plot_title = grp_name
-                        with tabs.add_dropdown_tab(grp_name):
-                            vals = df["mean_quality"].dropna()
-                            lower_limit = vals.quantile(0.01, interpolation="lower")
-                            upper_limit = vals.quantile(0.99, interpolation="higher")
-                            plt = histogram_with_mean_and_median(
-                                vals[(vals >= lower_limit) & (vals <= upper_limit)],
-                                title=plot_title,
-                                x_axis_name="Quality",
-                                y_axis_name="Number of reads",
-                            )
-                            plt.xAxis.min = lower_limit.round(1)
-                            plt.xAxis.max = upper_limit.round(1)
-                            EZChart(plt, theme=THEME)
-
-            # quality per ref file
-            with dom_tags.div():
-                sub_heading("Per reference file:")
-                tabs = Tabs()
-                with tabs.add_dropdown_menu():
-                    for grp_name, df in stats_df.groupby("ref_file", observed=True):
-                        grp_name = sanitizer(grp_name)
-                        plot_title = grp_name
-                        with tabs.add_dropdown_tab(grp_name):
-                            vals = df["mean_quality"].dropna()
-                            lower_limit = vals.quantile(0.01, interpolation="lower")
-                            upper_limit = vals.quantile(0.99, interpolation="higher")
-                            plt = histogram_with_mean_and_median(
-                                vals[(vals >= lower_limit) & (vals <= upper_limit)],
-                                title=plot_title,
-                                x_axis_name="Quality",
-                                y_axis_name="Number of reads",
-                            )
-                            plt.xAxis.min = lower_limit.round(1)
-                            plt.xAxis.max = upper_limit.round(1)
-                            EZChart(plt, theme=THEME)
-
-
-def accuracy(report, stats_df_mapped, sanitizer):
-    """Create mapping accuracy section.
-
-    :param report: report object (`ezcharts.components.reports.labs.LabsReport`)
-    :param stats_df_mapped: `pd.DataFrame` with bamstats per-read stats (aligned reads
-        only)
-    :param sanitizer: `sanitizer.Sanitizer` for sanitizing strings passed to ezcharts
-    """
-    with report.add_section("Alignment accuracy", "Accuracy"):
-        with Grid():
-            # accuracy per sample
-            with dom_tags.div():
-                sub_heading("Per sample:")
-                tabs = Tabs()
-                with tabs.add_dropdown_menu():
-                    for grp_name, df in stats_df_mapped.groupby(
-                        "sample_name", observed=True
-                    ):
-                        grp_name = sanitizer(grp_name)
-                        plot_title = grp_name
-                        with tabs.add_dropdown_tab(grp_name):
-                            vals = df["acc"].dropna()
-                            lower_limit = vals.quantile(0.01, interpolation="lower")
-                            plt = histogram_with_mean_and_median(
-                                vals[vals >= lower_limit],
-                                title=plot_title,
-                                x_axis_name="Accuracy [%]",
-                                y_axis_name="Number of reads",
-                            )
-                            plt.xAxis.min = lower_limit.round(1)
-                            plt.xAxis.max = 100
-                            EZChart(plt, theme=THEME)
-
-            # accuracy per ref file
-            with dom_tags.div():
-                sub_heading("Per reference file:")
-                tabs = Tabs()
-                with tabs.add_dropdown_menu():
-                    for grp_name, df in stats_df_mapped.groupby(
-                        "ref_file", observed=True
-                    ):
-                        grp_name = sanitizer(grp_name)
-                        plot_title = grp_name
-                        with tabs.add_dropdown_tab(grp_name):
-                            vals = df["acc"].dropna()
-                            lower_limit = vals.quantile(0.01, interpolation="lower")
-                            plt = histogram_with_mean_and_median(
-                                vals[vals >= lower_limit],
-                                title=plot_title,
-                                x_axis_name="Accuracy [%]",
-                                y_axis_name="Number of reads",
-                            )
-                            plt.xAxis.min = lower_limit.round(1)
-                            plt.xAxis.max = 100
-                            EZChart(plt, theme=THEME)
-
-
-def read_coverage(report, stats_df_mapped, sanitizer):
-    """Create read coverage section.
-
-    This section contains histograms showing the portion of individual reads covered by
-    alignments.
-
-    :param report: report object (`ezcharts.components.reports.labs.LabsReport`)
-    :param stats_df_mapped: `pd.DataFrame` with bamstats per-read stats (aligned reads
-        only)
-    :param sanitizer: `sanitizer.Sanitizer` for sanitizing strings passed to ezcharts
-    """
-    with report.add_section("Read coverage", "Read cov."):
+    with report.add_section("Read and alignment summary statistics", "Read stats"):
         dom_tags.p(
             """
-            These histograms show how much of an individual aligned read was covered by
-            the alignment.
+            Read quality and length in addition to alignment accuracy and coverage are
+            illustrated in the plots below.
             """
         )
-        with Grid():
-            with dom_tags.div():
-                # coverage per sample
-                sub_heading("Per sample:")
-                tabs = Tabs()
-                with tabs.add_dropdown_menu():
-                    for grp_name, df in stats_df_mapped.groupby(
-                        "sample_name", observed=True
-                    ):
-                        grp_name = sanitizer(grp_name)
-                        plot_title = grp_name
-                        with tabs.add_dropdown_tab(grp_name):
-                            vals = df["coverage"].dropna()
-                            lower_limit = vals.quantile(0.01, interpolation="lower")
-                            plt = histogram_with_mean_and_median(
-                                vals[vals >= lower_limit],
-                                title=plot_title,
-                                x_axis_name="Coverage [%]",
-                                y_axis_name="Number of reads",
-                            )
-                            plt.xAxis.min = lower_limit.round(1)
-                            plt.xAxis.max = 100
-                            EZChart(plt, theme=THEME)
-
-            with dom_tags.div():
-                # coverage per sample
-                sub_heading("Per reference file:")
-                tabs = Tabs()
-                with tabs.add_dropdown_menu():
-                    for grp_name, df in stats_df_mapped.groupby(
-                        "ref_file", observed=True
-                    ):
-                        grp_name = sanitizer(grp_name)
-                        plot_title = grp_name
-                        with tabs.add_dropdown_tab(grp_name):
-                            vals = df["coverage"].dropna()
-                            lower_limit = vals.quantile(0.01, interpolation="lower")
-                            plt = histogram_with_mean_and_median(
-                                vals[vals >= lower_limit],
-                                title=plot_title,
-                                x_axis_name="Coverage [%]",
-                                y_axis_name="Number of reads",
-                            )
-                            plt.xAxis.min = lower_limit.round(1)
-                            plt.xAxis.max = 100
-                            EZChart(plt, theme=THEME)
+        fastcat.SeqSummary(
+            tuple(per_sample_dirs), sample_names=tuple(d.name for d in per_sample_dirs)
+        )
 
 
 def get_relative_cumulative_depths(depth_df):
@@ -549,7 +359,10 @@ def counts(report, flagstat_df, counts, sanitizer):
                     "sample_name", observed=True
                 ):
                     n_detected_refs = (sample_df["obs"] > 0).sum()
-                    log_counts_df = np.log10(sample_df[["exp", "obs"]] + 1)
+                    log_counts_df = np.log10(sample_df[["exp", "obs"]] + 1).round(2)
+                    # add dummy hue column with empty strings so that no seriesName is
+                    # shown on the tooltips later
+                    log_counts_df["hue_dummy"] = ""
                     spear_r, spear_p = stats.spearmanr(
                         log_counts_df["exp"], log_counts_df["obs"]
                     )
@@ -558,7 +371,10 @@ def counts(report, flagstat_df, counts, sanitizer):
                     )
                     with tabs.add_dropdown_tab(sample_name):
                         plt = ezc.scatterplot(
-                            data=log_counts_df.round(2), x="exp", y="obs"
+                            data=log_counts_df,
+                            x="exp",
+                            y="obs",
+                            hue="hue_dummy",
                         )
                         plt.title = {
                             "text": "Expected vs. observed counts",
@@ -574,10 +390,12 @@ def counts(report, flagstat_df, counts, sanitizer):
                         plt.xAxis.scale = True
                         plt.yAxis.scale = True
 
-                        # add ref IDs as tooltips
-                        plt.dataset[0].source = np.hstack((
-                            plt.dataset[0].source, log_counts_df.index.values[:, None]
-                        ))
+                        # we need to re-assign the dataset source in order to add ref
+                        # IDs as tooltips
+                        plt.dataset[0].source = log_counts_df.reset_index()[
+                            ["exp", "obs", "hue_dummy", "ref"]
+                        ].values
+
                         plt.dataset[0].dimensions = ["x", "y", "hue", "tooltip"]
                         plt.series[0].encode["tooltip"] = "tooltip"
                         plt.tooltip = {"trigger": "item"}

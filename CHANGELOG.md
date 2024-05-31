@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
+### Changed
+- Streamlined and simplified the report.
+- The per-read stats TSV file is no longer created by default. Instead, several histogram TSV files of read / alignment statistics (read length and mean quality; alignment accuracy and coverage) are output. The original per-read TSV can still be created with the `--per_read_stats` parameter. It is now gzip-compressed.
+
 ### Added
 - IGV config json file to the outputs (in order to visualise the alignments and called variants).
 
