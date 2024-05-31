@@ -24,6 +24,7 @@
 |--------------------------|------|-------------|------|---------|
 | out_dir | string | Directory for output of all workflow results. |  | output |
 | prefix | string | Optional prefix attached to each of the output filenames. | Output filename format will be `<prefix>-filename.ext`. |  |
+| per_read_stats | boolean | Generate Bamstats per-read stats. | With this option, the workflow will produce detailed per-read alignment stats emitted as gzipped TSV file. As these files can get quite large, it is recommended to only request them when necessary. | False |
 
 
 ### Advanced options

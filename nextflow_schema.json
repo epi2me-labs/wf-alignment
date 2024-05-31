@@ -111,6 +111,13 @@
                     "title": "Output filename prefix",
                     "description": "Optional prefix attached to each of the output filenames.",
                     "help_text": "Output filename format will be `<prefix>-filename.ext`."
+                },
+                "per_read_stats": {
+                    "type": "boolean",
+                    "default": false,
+                    "title": "Per-read alignment stats",
+                    "description": "Generate Bamstats per-read stats.",
+                    "help_text": "With this option, the workflow will produce detailed per-read alignment stats emitted as gzipped TSV file. As these files can get quite large, it is recommended to only request them when necessary."
                 }
             }
         },

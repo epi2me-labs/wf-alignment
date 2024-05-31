@@ -3,7 +3,7 @@
 import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
-include { fastq_ingress; xam_ingress; } from "./lib/ingress"
+include { fastq_ingress; xam_ingress; bamstats } from "./lib/ingress"
 include { configure_igv } from "./lib/common"
 include { process_references } from "./subworkflows/process_references"
 
@@ -77,25 +77,8 @@ process alignReads {
     """
     ${is_xam ? "samtools fastq -T '*' $input" : "cat $input"} \
     | minimap2 -t $mapping_threads $minimap_args $combined_refs - \
-    | samtools sort --write-index -@ ${sorting_threads - 1} \
+    | samtools sort --write-index -@ ${sorting_threads - 1} -o reads.bam - \
         -o aligned.sorted.bam##idx##aligned.sorted.bam.bai
-    """
-}
-
-process bamstats {
-    label "wfalignment"
-    cpus 2
-    memory "4 GB"
-    input:
-        tuple val(meta), path(bam), path(index)
-    output:
-        path "*.readstats.tsv", emit: read_stats
-        path "*.flagstat.tsv", emit: flagstat
-    script:
-        def sample_name = meta["alias"]
-    """
-    bamstats $bam -s $sample_name -u -f ${sample_name}.flagstat.tsv -t $task.cpus \
-    > ${sample_name}.readstats.tsv
     """
 }
 
@@ -129,26 +112,25 @@ process readDepthPerRef {
         tuple val(meta), path(alignment), path(index)
         path ref_len
     output:
-        tuple val(meta), path(outfname), env(max_depth_and_locus)
+        tuple val(meta), path("depth.all_regions.bed.gz"), env(max_depth_and_locus)
     script:
-        def sample_name = meta["alias"]
-        outfname = "${sample_name}.all_regions.bed.gz"
     """
     while IFS=\$'\\t' read -r name lengths steps; do
         mosdepth -n --fast-mode --by "\$steps" --chrom "\$name" -t $task.cpus \
-            ${sample_name}."\$name".temp $alignment \
+            depth."\$name".temp $alignment \
         || echo "No alignments for "\$name""
-        [[ -f ${sample_name}."\$name".temp.regions.bed.gz ]] && \
-            cat ${sample_name}."\$name".temp.regions.bed.gz >> $outfname
+        [[ -f depth."\$name".temp.regions.bed.gz ]] && \
+            cat depth."\$name".temp.regions.bed.gz >> depth.all_regions.bed.gz
     done < $ref_len
 
     # remove all the temp files
-    find -name '${sample_name}.*.temp*' -delete
+    find -name 'depth.*.temp*' -delete
 
     # find the window with the highest depth (to be used as initial region to display in
     # the IGV panel)
     max_depth_and_locus=\$(
-        workflow-glue get_max_depth_locus $outfname $params.wf.max_depth_window_size
+        workflow-glue get_max_depth_locus depth.all_regions.bed.gz \
+            $params.wf.max_depth_window_size
     )
     """
 }
@@ -158,33 +140,22 @@ process makeReport {
     cpus 1
     memory "11 GB"
     input:
-        path "readstats/*"
-        path "flagstat/*"
+        path "per-sample-data/*"
         path "refnames/*"
-        path depths, stageAs: "depths/*"
         path counts
-        path versions
-        path params
+        path "versions.txt"
+        path "params.json"
     output:
         path "*.html"
     script:
-    String depth_args = "--depths_dir depths"
-    // we need to check against `.baseName` here because Nextflow includes the staging
-    // directory in the `.name` of a `TaskPath`
-    if (!(depths instanceof List) && depths.baseName == OPTIONAL_FILE.name) {
-        depth_args = ""
-    }
     String counts_args = (counts.name == OPTIONAL_FILE.name) ? "" : "--counts $counts"
     """
     workflow-glue report \
-        --name wf-alignment \
-        --stats_dir readstats \
-        --flagstat_dir flagstat \
+        --data per-sample-data \
         --refnames_dir refnames \
-        --versions $versions \
-        --params $params \
+        --versions versions.txt \
+        --params params.json \
         --wf-version $workflow.manifest.version \
-        $depth_args \
         $counts_args
     """
 }
@@ -220,6 +191,19 @@ process getParams {
     """
     # Output nextflow params object to JSON
     echo '$paramsJSON' > params.json
+    """
+}
+
+
+process collectFilesInDir {
+    label "wfalignment"
+    cpus 1
+    memory "2 GB"
+    input: tuple val(dirname), path("staging_dir/*")
+    output: path(dirname)
+    script:
+    """
+    mv staging_dir $dirname
     """
 }
 
@@ -282,22 +266,44 @@ workflow pipeline {
             alignReads(ch_to_align, minimap_reference, params.bam as boolean, minimap_args)
         )
 
-        // get the sample names and sort them
+        // get stats
+        stats = bamstats(bam, ["per_read_stats": params.per_read_stats])
+        | multiMap { meta, bam, bai, stats ->
+            // histograms and flagstat should always be there
+            ArrayList hists = file(stats.resolve("*.hist"))
+            Path flagstat = file(stats.resolve("bamstats.flagstat.tsv"))
+            // readstats is only there when they were requested
+            Path readstats = file(stats.resolve("bamstats.readstats.tsv.gz"))
+            hists: [meta, hists]
+            flagstat: [meta, flagstat]
+            readstats: [meta, readstats.exists() ? readstats : null]
+        }
+
+        // create a channel with the stats files needed for the report
+        files_for_report = stats.hists
+        | join(stats.flagstat)
+
+        // get the sample names and sort them (will be used for IGV config below)
         sample_names = bam
         | map { meta, bam, bai -> meta.alias }
         | toSortedList
 
-        // get stats
-        stats = bamstats(bam)
-
         // determine read_depth per reference / bam file if requested
-        depth_per_ref = Channel.of(OPTIONAL_FILE)
         igv_locus = Channel.of(null)
         if (depth_coverage) {
             // add step column to ref lengths
             ref_lengths_with_steps = addStepsColumn(refs.lengths_combined)
-            depth_per_ref = readDepthPerRef(bam, ref_lengths_with_steps)
-            | map { meta, depths, max_depth_and_locus -> depths }
+
+            // get the depths
+            readDepthPerRef(bam, ref_lengths_with_steps)
+            | map { meta, depths, max_depth_and_locus -> [meta, depths] }
+
+            // add to the channel with the files for the report
+            files_for_report = files_for_report
+            | join(
+                readDepthPerRef.out
+                | map { meta, depths, max_depth_and_locus -> [meta, depths] }
+            )
 
             // decide which locus to show in the initial view of the IGV panel as
             // follows:
@@ -330,10 +336,16 @@ workflow pipeline {
         }
 
         report = makeReport(
-            stats.read_stats.collect(),
-            stats.flagstat.collect(),
+            // collect files for report in directories (one dir per sample)
+            files_for_report
+            | map {
+                meta = it[0]
+                files = it[1..-1].flatten()
+                [meta.alias, files]
+            }
+            | collectFilesInDir
+            | collect,
             refs.names_per_ref_file.collect(),
-            depth_per_ref.collect(),
             counts,
             software_versions,
             workflow_params,
@@ -358,8 +370,9 @@ workflow pipeline {
 
     emit:
         bam
-        per_read_stats = stats.read_stats
-        per_file_stats = stats.flagstat
+        histograms = stats.hists
+        flagstat = stats.flagstat
+        readstats = stats.readstats
         report
         igv_conf
         params_json = workflow_params
@@ -422,16 +435,15 @@ workflow {
         sample_data, params.references, counts, params.depth_coverage
     )
 
+    // publish results files
     Channel.empty().mix(
-        results.per_read_stats,
-        results.per_file_stats,
-        results.report,
-        results.igv_conf,
         results.params_json,
         results.software_versions,
         results.combined_ref,
         results.combined_ref_index,
         results.combined_ref_mmi_file,
+        results.report,
+        results.igv_conf,
     )
     | map { [it, null] }
     | mix (
@@ -439,7 +451,19 @@ workflow {
         | flatMap { meta, bam, bai -> [
             [bam, "${meta.alias}.sorted.aligned.bam"],
             [bai, "${meta.alias}.sorted.aligned.bam.bai"],
-        ]}
+        ]},
+        // flagstat and histograms should always be there
+        results.flagstat
+        | map { meta, flagstat -> [flagstat, "${meta.alias}.flagstat.tsv"] },
+        results.histograms
+        | flatMap { meta, hists ->
+            hists.collect { hist -> [hist, "${meta.alias}-histograms/$hist.name"] }
+        },
+        // also publish per-read stats if there are some
+        results.readstats
+        | map { meta, readstats ->
+            if (readstats) [readstats, "${meta.alias}.readstats.tsv.gz"]
+        },
     )
     | output
 }
