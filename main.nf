@@ -76,7 +76,8 @@ process alignReads {
         mapping_threads = Math.max(1, mapping_threads)
     """
     ${is_xam ? "samtools fastq -T '*' $input" : "cat $input"} \
-    | minimap2 -t $mapping_threads $minimap_args $combined_refs - \
+    | minimap2 -t $mapping_threads $minimap_args --cap-kalloc 100m --cap-sw-mem 50m \
+        $combined_refs - \
     | samtools sort --write-index -@ ${sorting_threads - 1} -o reads.bam - \
         -o aligned.sorted.bam##idx##aligned.sorted.bam.bai
     """
