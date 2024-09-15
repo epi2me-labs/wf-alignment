@@ -1,7 +1,7 @@
 {
   "files": {
     "workflow-report": {
-      "filepath": "./wf-alignment-report.html",
+      "filepath": "wf-alignment-report.html",
       "title": "workflow report",
       "description": "Report for all samples",
       "mime-type": "text/html",
@@ -9,7 +9,7 @@
       "type": "aggregated"
     },
     "references": {
-      "filepath": "./combined-refs.fasta",
+      "filepath": "combined-refs.fasta",
       "title": "Combined references",
       "description": "FASTA file containing all input references.",
       "mime-type": "text/txt",
@@ -17,7 +17,7 @@
       "type": "aggregated"
     },
     "references-index": {
-      "filepath": "./combined-refs.fasta.fai",
+      "filepath": "combined-refs.fasta.fai",
       "title": "Combined references index",
       "description": "Index file for combined references FASTA.",
       "mime-type": "text/txt",
@@ -25,7 +25,7 @@
       "type": "aggregated"
     },
     "references-mmi-index": {
-      "filepath": "./combined-refs.mmi",
+      "filepath": "combined-refs.mmi",
       "title": "Combined references MMI index",
       "description": "Minimap2 index file for combined references FASTA.",
       "mime-type": "application/octet-stream",
@@ -33,7 +33,7 @@
       "type": "aggregated"
     },
     "per-read-bamstats": {
-      "filepath": "./{{ alias }}.readstats.tsv.gz",
+      "filepath": "{{ alias }}.readstats.tsv.gz",
       "title": "Per-read alignment stats",
       "description": "Bamstats per-read output TSV file (compressed with gzip).",
       "mime-type": "application/gzip",
@@ -41,7 +41,7 @@
       "type": "per-sample"
     },
     "bamstats-flagstat": {
-      "filepath": "./{{ alias }}.flagstat.tsv",
+      "filepath": "{{ alias }}.flagstat.tsv",
       "title": "Per-reference alignment stats",
       "description": "Bamstats flagstat output TSV file.",
       "mime-type": "text/tab-separated-values",
@@ -49,7 +49,7 @@
       "type": "per-sample"
     },
     "alignment-accuracy-histogram": {
-      "filepath": "./{{ alias }}-histograms/accuracy.hist",
+      "filepath": "{{ alias }}-histograms/accuracy.hist",
       "title": "Alignment accuracy histogram",
       "description": "Bamstats alignment accuracy histogram TSV file.",
       "mime-type": "text/tab-separated-values",
@@ -57,7 +57,7 @@
       "type": "per-sample"
     },
     "alignment-coverage-histogram": {
-      "filepath": "./{{ alias }}-histograms/coverage.hist",
+      "filepath": "{{ alias }}-histograms/coverage.hist",
       "title": "Alignment coverage histogram",
       "description": "Bamstats alignment coverage histogram TSV file.",
       "mime-type": "text/tab-separated-values",
@@ -65,7 +65,7 @@
       "type": "per-sample"
     },
     "mapped-read-length-histogram": {
-      "filepath": "./{{ alias }}-histograms/length.hist",
+      "filepath": "{{ alias }}-histograms/length.hist",
       "title": "Read length histogram (mapped)",
       "description": "Bamstats read length histogram TSV file (for mapped reads).",
       "mime-type": "text/tab-separated-values",
@@ -73,7 +73,7 @@
       "type": "per-sample"
     },
     "unmapped-read-length-histogram": {
-      "filepath": "./{{ alias }}-histograms/length.unmap.hist",
+      "filepath": "{{ alias }}-histograms/length.unmap.hist",
       "title": "Read length histogram (unmapped)",
       "description": "Bamstats read length histogram TSV file (for unmapped reads).",
       "mime-type": "text/tab-separated-values",
@@ -81,7 +81,7 @@
       "type": "per-sample"
     },
     "mapped-read-quality-histogram": {
-      "filepath": "./{{ alias }}-histograms/quality.hist",
+      "filepath": "{{ alias }}-histograms/quality.hist",
       "title": "Read quality histogram (mapped)",
       "description": "Bamstats read quality histogram TSV file (for mapped reads).",
       "mime-type": "text/tab-separated-values",
@@ -89,7 +89,7 @@
       "type": "per-sample"
     },
     "unmapped-read-quality-histogram": {
-      "filepath": "./{{ alias }}-histograms/quality.unmap.hist",
+      "filepath": "{{ alias }}-histograms/quality.unmap.hist",
       "title": "Read quality histogram (unmapped)",
       "description": "Bamstats read quality histogram TSV file (for unmapped reads).",
       "mime-type": "text/tab-separated-values",
@@ -97,7 +97,7 @@
       "type": "per-sample"
     },
     "alignments": {
-      "filepath": "./{{ alias }}.sorted.aligned.bam",
+      "filepath": "{{ alias }}.sorted.aligned.bam",
       "title": "Alignments BAM file",
       "description": "BAM file with alignments of filtered input reads against the combined references.",
       "mime-type": "application/gzip",
@@ -105,7 +105,7 @@
       "type": "per-sample"
     },
     "alignments-index": {
-      "filepath": "./{{ alias }}.sorted.aligned.bam.bai",
+      "filepath": "{{ alias }}.sorted.aligned.bam.bai",
       "title": "Alignments index file",
       "description": "Index for alignments BAM file.",
       "mime-type": "application/octet-stream",
@@ -113,7 +113,7 @@
       "type": "per-sample"
     },
     "igv-config": {
-      "filepath": "./igv.json",
+      "filepath": "igv.json",
       "title": "IGV config JSON file",
       "description": "JSON file with IGV config options to be used by the EPI2ME Desktop Application.",
       "mime-type": "application/json",

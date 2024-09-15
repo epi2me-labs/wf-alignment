@@ -139,7 +139,9 @@ process readDepthPerRef {
 process makeReport {
     label "wf_common"
     cpus 1
-    memory "11 GB"
+    memory {11.GB * task.attempt}
+    maxRetries 1
+    errorStrategy = 'retry'
     input:
         path "per-sample-data/*"
         path "refnames/*"

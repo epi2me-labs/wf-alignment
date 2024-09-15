@@ -1,9 +1,10 @@
 """Sections for ezcharts report."""
 
+from bokeh.models import HoverTool
+from bokeh.models import Title
 import numpy as np
 import pandas as pd
 from scipy import stats
-
 import dominate.tags as dom_tags  # noqa: I100,I202
 import dominate.util as dom_util
 
@@ -298,13 +299,11 @@ def depths(report, depth_df):
                             x="total_mean_pos",
                             y="depth",
                             hue="sample_name",
+                            title="Coverage along reference",
+                            marker=False,
                         )
-                        plt.title = {"text": "Coverage along reference"}
-                        plt.xAxis.name = "Position along reference"
-                        plt.yAxis.name = "Sequencing depth"
-                        for s in plt.series:
-                            s.showSymbol = False
-                        plt.tooltip = {"trigger": "axis"}
+                        plt._fig.xaxis.axis_label = "Position along reference"
+                        plt._fig.yaxis.axis_label = "Sequencing depth"
                         EZChart(plt, theme=THEME)
                         # now the cumulative depth plot
                         plt = ezc.lineplot(
@@ -312,24 +311,21 @@ def depths(report, depth_df):
                             x="depth",
                             y="ref_percentage",
                             hue="sample_name",
+                            title="Cumulative coverage",
+                            marker=False,
                         )
-                        plt.xAxis.scale = True
-                        plt.title = {"text": "Cumulative coverage"}
-                        plt.xAxis.name = "Sequencing depth"
-                        plt.yAxis.name = "Percentage of reference"
-                        for s in plt.series:
-                            s.showSymbol = False
-                        plt.tooltip = {"trigger": "axis"}
+                        # plt.xAxis.scale = True
+                        plt._fig.xaxis.axis_label = "Sequencing depth"
+                        plt._fig.yaxis.axis_label = "Percentage of reference"
                         EZChart(plt, theme=THEME)
 
 
-def counts(report, flagstat_df, counts, sanitizer):
+def counts(report, flagstat_df, counts):
     """Create counts section.
 
     :param report: report object (`ezcharts.components.reports.labs.LabsReport`)
     :param flagstat_df: `pd.DataFrame` with bamstats per-file stats
     :param counts: `pd.Series` of expected counts (with ref. sequence IDs as index)
-    :param sanitizer: `sanitizer.Sanitizer` for sanitizing strings passed to ezcharts
     """
     exp_obs_counts_df = (
         flagstat_df.query('ref != "*"')[["ref", "sample_name", "ref_file", "primary"]]
@@ -360,46 +356,47 @@ def counts(report, flagstat_df, counts, sanitizer):
                 ):
                     n_detected_refs = (sample_df["obs"] > 0).sum()
                     log_counts_df = np.log10(sample_df[["exp", "obs"]] + 1).round(2)
-                    # add dummy hue column with empty strings so that no seriesName is
-                    # shown on the tooltips later
-                    log_counts_df["hue_dummy"] = ""
                     spear_r, spear_p = stats.spearmanr(
                         log_counts_df["exp"], log_counts_df["obs"]
                     )
                     pears_r, pears_p = stats.pearsonr(
                         log_counts_df["exp"], log_counts_df["obs"]
                     )
+                    log_counts_df = log_counts_df.reset_index()
                     with tabs.add_dropdown_tab(sample_name):
                         plt = ezc.scatterplot(
                             data=log_counts_df,
                             x="exp",
                             y="obs",
-                            hue="hue_dummy",
+                            hue="ref",
+                            title="Expected vs. observed counts",
                         )
-                        plt.title = {
-                            "text": "Expected vs. observed counts",
-                            "subtext": sanitizer(
+                        plt._fig.add_layout(Title(text=(
                                 f"Spearman's: {spear_r:.2f} (p={spear_p:.1e}); "
                                 f"Pearson's: {pears_r:.2f} (p={pears_p:.1e}); "
                                 "detected refs: "
                                 f"{n_detected_refs} / {sample_df.shape[0]}"
-                            ),
-                        }
-                        plt.xAxis.name = "log10 of expected counts"
-                        plt.yAxis.name = "log10 of observed counts"
-                        plt.xAxis.scale = True
-                        plt.yAxis.scale = True
+                            ), text_font_style="italic"), 'above')
+                        plt._fig.xaxis.axis_label = "log10 of expected counts"
+                        plt._fig.yaxis.axis_label = "log10 of observed counts"
 
-                        # we need to re-assign the dataset source in order to add ref
+                        # Hide legend because could be many entries.
+                        plt._fig.legend.visible = False
                         # IDs as tooltips
-                        plt.dataset[0].source = log_counts_df.reset_index()[
-                            ["exp", "obs", "hue_dummy", "ref"]
-                        ].values
+                        # Add ref to the plot to be able to access later in hover
+                        # There is one glyd per ref, which is the hue
+                        # Replace with the corresponding info based on the index value
+                        for gly in plt._fig.renderers:
+                            # add more properties for hover later
+                            gly.data_source.data['ref'] = log_counts_df.loc[
+                                list(gly.data_source.to_df().index)]['ref']
 
-                        plt.dataset[0].dimensions = ["x", "y", "hue", "tooltip"]
-                        plt.series[0].encode["tooltip"] = "tooltip"
-                        plt.tooltip = {"trigger": "item"}
-
+                        hover = plt._fig.select(dict(type=HoverTool))
+                        hover.tooltips = [
+                            ("exp", "$x"),
+                            ("obs", "$y"),
+                            ("ref", "@ref"),
+                        ]
                         EZChart(plt, theme=THEME)
                         no_plot_generated = False
         if no_plot_generated:

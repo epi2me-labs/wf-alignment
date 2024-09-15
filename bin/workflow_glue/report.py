@@ -6,11 +6,9 @@ from pathlib import Path
 from ezcharts.components.reports import labs
 import pandas as pd
 
-from .report_utils import read_data, sanitizer, sections  # noqa: ABS101
+from .report_utils import read_data, sections  # noqa: ABS101
 
 from .util import get_named_logger, wf_parser  # noqa: ABS101
-
-sanitizer = sanitizer.Sanitizer()
 
 
 def main(args):
@@ -69,13 +67,11 @@ def main(args):
     if depth_df is not None:
         sections.depths(report, depth_df)
     if counts is not None:
-        sections.counts(report, flagstat_df, counts, sanitizer)
-    # "de-sanitize" the report and write to the output file
+        sections.counts(report, flagstat_df, counts)
     report_fname = "wf-alignment-report.html"
-    with open(report_fname, "w") as report_file:
-        report_file.write(sanitizer.desanitise_report(str(report)))
+    report.write(report_fname)
 
-    logger.info(f"Written sanitized report to '{report_fname}'.")
+    logger.info(f"Written report to '{report_fname}'.")
 
 
 def argparser():
