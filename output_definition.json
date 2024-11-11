@@ -117,7 +117,7 @@
       "title": "IGV config JSON file",
       "description": "JSON file with IGV config options to be used by the EPI2ME Desktop Application.",
       "mime-type": "application/json",
-      "optional": false,
+      "optional": true,
       "type": "aggregated"
     }
   }
