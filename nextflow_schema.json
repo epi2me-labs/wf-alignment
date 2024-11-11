@@ -118,6 +118,12 @@
                     "title": "Per-read alignment stats",
                     "description": "Generate Bamstats per-read stats.",
                     "help_text": "With this option, the workflow will produce detailed per-read alignment stats emitted as gzipped TSV file. As these files can get quite large, it is recommended to only request them when necessary."
+                },
+                "igv": {
+                    "type": "boolean",
+                    "default": false,
+                    "title": "IGV",
+                    "description": "Enable IGV visualisation in the EPI2ME Desktop Application by creating the required files."
                 }
             }
         },

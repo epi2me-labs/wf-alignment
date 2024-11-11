@@ -307,35 +307,36 @@ workflow pipeline {
                 readDepthPerRef.out
                 | map { meta, depths, max_depth_and_locus -> [meta, depths] }
             )
-
-            // decide which locus to show in the initial view of the IGV panel as
-            // follows:
-            // * get the locus with the largest depth for each sample
-            // * iterate over the samples and pick the first locus that has more depth
-            //   than `params.wf.igv_locus_depth_threshold`
-            igv_locus = readDepthPerRef.out
-            | map { meta, depths, max_depth_and_locus ->
-                (depth, locus) = max_depth_and_locus.split()
-                [meta.alias, depth as float, locus]
-            }
-            | toList
-            // collect the max depths and loci in a map with the sample names as keys
-            | map {
-                it.collectEntries { alias, depth, locus -> [alias, [locus, depth]] }
-            }
-            // combine the map with the list of sample names (as these are in the right
-            // order); we use `cross` with an empty closure here because `combine`
-            // flattens its input channels
-            | cross(sample_names) { }
-            | map { per_sample_max_depth_loci, sample_names ->
-                for (sample in sample_names) {
-                    (locus, depth) = per_sample_max_depth_loci[sample] ?: [null, null]
-                    if (depth > params.wf.igv_locus_depth_threshold) {
-                        return locus
+            if (params.igv) {
+                // decide which locus to show in the initial view of the IGV panel as
+                // follows:
+                // * get the locus with the largest depth for each sample
+                // * iterate over the samples and pick the first locus that has more depth
+                //   than `params.wf.igv_locus_depth_threshold`
+                igv_locus = readDepthPerRef.out
+                | map { meta, depths, max_depth_and_locus ->
+                    (depth, locus) = max_depth_and_locus.split()
+                    [meta.alias, depth as float, locus]
+                }
+                | toList
+                // collect the max depths and loci in a map with the sample names as keys
+                | map {
+                    it.collectEntries { alias, depth, locus -> [alias, [locus, depth]] }
+                }
+                // combine the map with the list of sample names (as these are in the right
+                // order); we use `cross` with an empty closure here because `combine`
+                // flattens its input channels
+                | cross(sample_names) { }
+                | map { per_sample_max_depth_loci, sample_names ->
+                    for (sample in sample_names) {
+                        (locus, depth) = per_sample_max_depth_loci[sample] ?: [null, null]
+                        if (depth > params.wf.igv_locus_depth_threshold) {
+                            return locus
+                        }
                     }
                 }
+                | ifEmpty(null)
             }
-            | ifEmpty(null)
         }
 
         report = makeReport(
@@ -353,23 +354,24 @@ workflow pipeline {
             software_versions,
             workflow_params,
         )
-
-        // create IGV config file
-        igv_conf = configure_igv(
-            Channel.empty()
-            | concat(
-                refs.combined.name,
-                refs.combined_index.name,
-                sample_names | map { list -> list.collect {
-                    [ "${it}.sorted.aligned.bam", "${it}.sorted.aligned.bam.bai" ]
-                } }
+        if (params.igv) {
+            // create IGV config file
+            igv_conf = configure_igv(
+                Channel.empty()
+                | concat(
+                    refs.combined.name,
+                    refs.combined_index.name,
+                    sample_names | map { list -> list.collect {
+                        [ "${it}.sorted.aligned.bam", "${it}.sorted.aligned.bam.bai" ]
+                    } }
+                )
+                | flatten
+                | collectFile(newLine: true, sort: false),
+                igv_locus,
+                [displayMode: "SQUISHED", colorBy: "strand"],
+                Channel.of(null),
             )
-            | flatten
-            | collectFile(newLine: true, sort: false),
-            igv_locus,
-            [displayMode: "SQUISHED", colorBy: "strand"],
-            Channel.of(null),
-        )
+        }
 
     emit:
         bam
@@ -377,7 +379,6 @@ workflow pipeline {
         flagstat = stats.flagstat
         readstats = stats.readstats
         report
-        igv_conf
         params_json = workflow_params
         software_versions
         combined_ref = refs.combined
@@ -446,7 +447,6 @@ workflow {
         results.combined_ref_index,
         results.combined_ref_mmi_file,
         results.report,
-        results.igv_conf,
     )
     | map { [it, null] }
     | mix (
