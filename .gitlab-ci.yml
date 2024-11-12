@@ -20,6 +20,7 @@ docker-run:
         matrix:
             - MATRIX_NAME: [
                 "fastq", "bam", "ubam", "compress-one-ref", "compress-all-refs", "mmi",
+                "numeric_chrom_id_ref-01", "numeric_chrom_id_ref-02",
                 "igv",
             ]
     rules:
@@ -67,6 +68,16 @@ docker-run:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references \
                   --reference_mmi_file test_data/references/combined_references.mmi -executor.\\$$local.memory 12GB"
               NF_IGNORE_PROCESSES: makeMMIndex,renameBamFiles
+        - if: $MATRIX_NAME == "numeric_chrom_id_ref-01"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/other_references/case01 \
+                  -executor.\\$$local.memory 12GB"
+              NF_IGNORE_PROCESSES: checkReferences,renameBamFiles
+        - if: $MATRIX_NAME == "numeric_chrom_id_ref-02"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/other_references/case02 \
+                  -executor.\\$$local.memory 12GB"
+              NF_IGNORE_PROCESSES: checkReferences,renameBamFiles
         - if: $MATRIX_NAME == "igv"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references \

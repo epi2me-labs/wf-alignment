@@ -31,6 +31,7 @@ def depths(data_dir):
         sep="\t",
         header=None,
         names=["ref", "start", "end", "depth"],
+        dtype={"ref": str, "start": int, "end": int, "depth": float},
     )
     return depths
 
@@ -59,7 +60,9 @@ def counts(counts_file):
     :raises ValueError: throw error if one of the required columns is missing
     :return: `pd.Series` with the expected counts
     """
-    counts = pd.read_csv(counts_file)
+    counts = pd.read_csv(
+        counts_file,
+        dtype={"Reference": str, "expected_count": float})
     counts.columns = [col.lower() for col in counts.columns]
     if not ("reference" in counts.columns and "expected_count" in counts.columns):
         raise ValueError(
@@ -68,4 +71,5 @@ def counts(counts_file):
                 "'expected_count' (capitalisation is ignored)."
             )
         )
+    counts["reference"] = counts["reference"].astype(str)
     return counts.set_index("reference")["expected_count"].squeeze()

@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Reconcile template with v5.3.0 and v5.3.1
 - IGV output files are only output if `--igv` is used
+### Fixed
+- Error caused by numeric reference chromosome identifiers.
 
 ## [v1.2.1]
 ### Changed

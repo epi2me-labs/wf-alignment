@@ -94,7 +94,9 @@ process addStepsColumn {
     """
     #!/usr/bin/env python
     import pandas as pd
-    all = pd.read_csv('lengths.tsv', sep='\\t')
+    all = pd.read_csv('lengths.tsv', sep='\\t',
+        dtype={"name": str, "lengths": int}
+        )
     # the number of depth windows and maximum depth window size are determined
     # in `params.wf`
     all["step"] = (all["lengths"] // $params.wf.num_depth_windows).clip(
