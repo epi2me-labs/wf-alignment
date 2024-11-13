@@ -17,19 +17,20 @@ MINIMAP_ARGS_PRESETS = [
 // Create an MMI index
 process makeMMIndex {
     label "wfalignment"
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "combined_refs.mmi"
     cpus params.threads
     memory {
         def ref_size = combined_refs.size()
         combined_refs.size() > 1e9 ? "31 GB" : "11 GB"
     }
     input:
-        path combined_refs, stageAs: "combined_references.fasta"
+        path combined_refs, stageAs: "combined_refs.fasta"
         val minimap_args
     output:
-        path "combined_references.mmi"
+        path "combined_refs.mmi"
     script:
     """
-    minimap2 -t $task.cpus $minimap_args -d combined_references.mmi combined_references.fasta
+    minimap2 -t $task.cpus $minimap_args -d combined_refs.mmi combined_refs.fasta
     """
 }
 
@@ -140,6 +141,7 @@ process readDepthPerRef {
 
 process makeReport {
     label "wf_common"
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "wf-alignment-report.html"
     cpus 1
     memory {11.GB * task.attempt}
     maxRetries 1
@@ -151,7 +153,7 @@ process makeReport {
         path "versions.txt"
         path "params.json"
     output:
-        path "*.html"
+        path "wf-alignment-report.html"
     script:
     String counts_args = (counts.name == OPTIONAL_FILE.name) ? "" : "--counts $counts"
     """
@@ -167,6 +169,7 @@ process makeReport {
 
 process getVersions {
     label "wfalignment"
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "versions.txt"
     cpus 1
     memory "2 GB"
     output:
@@ -187,6 +190,7 @@ process getVersions {
 
 process getParams {
     label "wfalignment"
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "params.json"
     cpus 1
     memory "2 GB"
     output:
@@ -380,19 +384,13 @@ workflow pipeline {
         histograms = stats.hists
         flagstat = stats.flagstat
         readstats = stats.readstats
-        report
-        params_json = workflow_params
-        software_versions
-        combined_ref = refs.combined
-        combined_ref_index = refs.combined_index
-        combined_ref_mmi_file = minimap_reference
 }
 
 
 // See https://github.com/nextflow-io/nextflow/issues/1636
 // This is the only way to publish files from a workflow whilst
 // decoupling the publish from the process steps.
-process output {
+process publish {
     label "wfalignment"
     cpus 1
     memory "2 GB"
@@ -442,16 +440,8 @@ workflow {
     )
 
     // publish results files
-    Channel.empty().mix(
-        results.params_json,
-        results.software_versions,
-        results.combined_ref,
-        results.combined_ref_index,
-        results.combined_ref_mmi_file,
-        results.report,
-    )
-    | map { [it, null] }
-    | mix (
+    Channel.empty()
+        | mix (
         results.bam
         | flatMap { meta, bam, bai -> [
             [bam, "${meta.alias}.sorted.aligned.bam"],
@@ -470,7 +460,7 @@ workflow {
             if (readstats) [readstats, "${meta.alias}.readstats.tsv.gz"]
         },
     )
-    | output
+    | publish
 }
 
 workflow.onComplete {

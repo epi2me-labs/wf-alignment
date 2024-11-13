@@ -9,7 +9,7 @@
       "type": "aggregated"
     },
     "references": {
-      "filepath": "combined-refs.fasta",
+      "filepath": "combined_refs.fasta",
       "title": "Combined references",
       "description": "FASTA file containing all input references.",
       "mime-type": "text/txt",
@@ -17,7 +17,7 @@
       "type": "aggregated"
     },
     "references-index": {
-      "filepath": "combined-refs.fasta.fai",
+      "filepath": "combined_refs.fasta.fai",
       "title": "Combined references index",
       "description": "Index file for combined references FASTA.",
       "mime-type": "text/txt",
@@ -25,11 +25,11 @@
       "type": "aggregated"
     },
     "references-mmi-index": {
-      "filepath": "combined-refs.mmi",
+      "filepath": "combined_refs.mmi",
       "title": "Combined references MMI index",
       "description": "Minimap2 index file for combined references FASTA.",
       "mime-type": "application/octet-stream",
-      "optional": false,
+      "optional": true,
       "type": "aggregated"
     },
     "per-read-bamstats": {

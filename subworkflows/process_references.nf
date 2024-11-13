@@ -1,5 +1,7 @@
 process combine {
     label "wfalignment"
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "combined_refs.fasta"
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "combined_refs.fasta.fai"
     cpus 1
     memory "2 GB"
     input: path "reference*.fasta"
