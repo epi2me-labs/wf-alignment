@@ -3,9 +3,9 @@ Output files may be aggregated including information for all samples or provided
 | Title | File path | Description | Per sample or aggregated |
 |-------|-----------|-------------|--------------------------|
 | workflow report | wf-alignment-report.html | Report for all samples | aggregated |
-| Combined references | combined-refs.fasta | FASTA file containing all input references. | aggregated |
-| Combined references index | combined-refs.fasta.fai | Index file for combined references FASTA. | aggregated |
-| Combined references MMI index | combined-refs.mmi | Minimap2 index file for combined references FASTA. | aggregated |
+| Combined references | combined_refs.fasta | FASTA file containing all input references. | aggregated |
+| Combined references index | combined_refs.fasta.fai | Index file for combined references FASTA. | aggregated |
+| Combined references MMI index | combined_refs.mmi | Minimap2 index file for combined references FASTA. | aggregated |
 | Per-read alignment stats | {{ alias }}.readstats.tsv.gz | Bamstats per-read output TSV file (compressed with gzip). | per-sample |
 | Per-reference alignment stats | {{ alias }}.flagstat.tsv | Bamstats flagstat output TSV file. | per-sample |
 | Alignment accuracy histogram | {{ alias }}-histograms/accuracy.hist | Bamstats alignment accuracy histogram TSV file. | per-sample |

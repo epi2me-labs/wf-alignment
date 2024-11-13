@@ -4,12 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v1.2.2]
 ### Changed
 - Reconcile template with v5.3.0 and v5.3.1
 - IGV output files are only output if `--igv` is used
 ### Fixed
 - Error caused by numeric reference chromosome identifiers.
+- Combined_refs.mmi is only published to the output directory when `reference_mmi_file` is not supplied.
+- Combined reference MMI is now output as `combined_refs.mmi` to match the declared output_definition.json.
+
 
 ## [v1.2.1]
 ### Changed
