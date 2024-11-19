@@ -283,10 +283,22 @@ workflow pipeline {
             Path flagstat = file(stats.resolve("bamstats.flagstat.tsv"))
             // readstats is only there when they were requested
             Path readstats = file(stats.resolve("bamstats.readstats.tsv.gz"))
+            Path runids = file(stats.resolve("run_ids"))
+            // keys must be defined after defs for ... reasons
             hists: [meta, hists]
             flagstat: [meta, flagstat]
             readstats: [meta, readstats.exists() ? readstats : null]
+            runids: [meta, runids]
         }
+        ArrayList ingressed_run_ids = []
+        stats.runids.map{ meta, runids_f -> runids_f }.splitText().subscribe(
+            onNext: {
+                ingressed_run_ids += it.strip()
+            },
+            onComplete: {
+                params.wf["ingress.run_ids"] = ingressed_run_ids
+            }
+        )
 
         // create a channel with the stats files needed for the report
         files_for_report = stats.hists
