@@ -1,1 +1,1 @@
-Align Nanopore reads and visualize mapping statistics.
+Align nanopore sequencing data and visualize mapping statistics.
