@@ -175,7 +175,12 @@
                 "disable_ping": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Enable to prevent sending a workflow ping."
+                    "description": "Enable to prevent sending a workflow ping.",
+                    "overrides": {
+                        "epi2mecloud": {
+                            "hidden": true
+                        }
+                    }
                 },
                 "help": {
                     "type": "boolean",
@@ -189,6 +194,11 @@
                     "default": false,
                     "description": "Display version and exit.",
                     "fa_icon": "fas fa-question-circle",
+                    "hidden": true
+                },
+                "store_dir": {
+                    "type": "string",
+                    "description": "Unused.",
                     "hidden": true
                 }
             }
