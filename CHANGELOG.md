@@ -5,9 +5,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased]
+## [v1.2.3]
 ### Changed
-- Reconcile template with v5.3.4
+- Updated container image to move conda environment out of `/home`. This fixes an issue some users experienced when running the workflow with singularity: nextflow would report not being able to find programs. 
+- Updated to wf-template v5.6.0, changing:
+    - Reduce verbosity of debug logging from fastcat which can occasionally occlude errors found in FASTQ files during ingress.
+    - Log banner art to say "EPI2ME" instead of "EPI2ME Labs" to match current branding. This has no effect on the workflow outputs.
+    - Unexpected workflow parameters now cause the workflow to fail.
+### Fixed
+- Updated to wf-template v5.6.0, fixing:
+    - dacite.exceptions.WrongTypeError during report generation when barcode is null.
+    - Sequence summary read length N50 incorrectly displayed minimum read length, it now correctly shows the N50.
+    - Sequence summary component alignment and coverage plots failed to plot under some conditions.
 
 ## [v1.2.2]
 ### Changed
