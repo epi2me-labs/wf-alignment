@@ -7,6 +7,10 @@ variables:
     NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references \
     --counts test_data/counts/ERCC_mix1.csv"
     CI_FLAVOUR: "new"
+    PYTEST_CONTAINER_NAME: "wf-common"
+    PYTEST_CONTAINER_CONFIG_KEY: "common_sha="
+
+
 
 docker-run:
     tags: []
