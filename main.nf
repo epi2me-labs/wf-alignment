@@ -169,7 +169,6 @@ process makeReport {
 
 process getVersions {
     label "wfalignment"
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "versions.txt"
     cpus 1
     memory "2 GB"
     output:
@@ -182,9 +181,23 @@ process getVersions {
     samtools --version | (head -n 1 && exit 0) | sed 's/ /,/' >> versions.txt
     fastcat --version | sed 's/^/fastcat,/' >> versions.txt
     mosdepth --version | sed 's/ /,/' >> versions.txt
-    ezcharts --version | sed 's/ /,/' >> versions.txt
     python -c "import pysam; print(f'pysam,{pysam.__version__}')" >> versions.txt
     bgzip --version | head -n1 | sed -E 's/(.*) /\\1,/' >> versions.txt
+    """
+}
+
+process getVersionsCommon {
+    label "wf_common"
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "versions.txt"
+    cpus 1
+    memory "2 GB"
+    input:
+        path "versions.txt"
+    output:
+        path "versions.txt"
+    script:
+    """
+    ezcharts --version | sed 's/ /,/' >> versions.txt
     """
 }
 
@@ -227,7 +240,7 @@ workflow pipeline {
     main:
         // get params & versions
         workflow_params = getParams()
-        software_versions = getVersions()
+        software_versions = getVersionsCommon(getVersions())
 
         // minimap2 args
         String minimap_args

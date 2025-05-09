@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+### Changed
+- Updated container image to remove unused packages and introduce pins.
+- Updated to wf-template v5.6.1, changing:
+    - pre-commit configuration to resolve an internal dependency problem with flake8. This has no effect on the workflow.
+
 
 ## [v1.2.3]
 ### Changed
