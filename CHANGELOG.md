@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 ### Changed
-- Updated container image to remove unused packages and introduce pins.
+- Updated container image to remove unused packages and introduce pins. This ensures reproducibility of the container image build process during workflow release to customers. There is no immediate effect for users.
 - Updated to wf-template v5.6.1, changing:
     - pre-commit configuration to resolve an internal dependency problem with flake8. This has no effect on the workflow.
 
