@@ -4,11 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
+## [v1.2.4]
+This patch release of wf-alignment fixes the "aux_parse: unrecognised type" error observed by some users. This release also updates wf-alignment to our latest workflow standard, but these changes will have no impact to the workflow.
+
+### Fixed
+- "aux_parse: unrecognised type" error by ensuring that FASTQ comment fields are correctly converted to valid SAM tags before alignment.
 ### Changed
 - Updated container image to remove unused packages and introduce pins. This ensures reproducibility of the container image build process during workflow release to customers. There is no immediate effect for users.
-- Updated to wf-template v5.6.1, changing:
-    - pre-commit configuration to resolve an internal dependency problem with flake8. This has no effect on the workflow.
+- Updated to wf-template v5.6.2 to maintain compliance with our latest wf-template standard: this does not impact the workflow.
+- `store_dir` parameter format incorrectly declared in the schema. This does not affect this workflow as it does not use the storeDir directive and has been changed to maintain compliance with our latest testing standard.
 
 
 ## [v1.2.3]

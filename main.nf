@@ -386,6 +386,7 @@ workflow pipeline {
             workflow_params,
         )
         if (params.igv) {
+            boolean keep_track_order = false
             // create IGV config file
             igv_conf = configure_igv(
                 Channel.empty()
@@ -401,6 +402,7 @@ workflow pipeline {
                 igv_locus,
                 [displayMode: "SQUISHED", colorBy: "strand"],
                 Channel.of(null),
+                keep_track_order,
             )
         }
 
@@ -445,15 +447,24 @@ workflow {
         "sample": params.sample,
         "sample_sheet": params.sample_sheet,
         "analyse_unclassified": params.analyse_unclassified,
-        "stats": false,
     ]
 
     // get input data
     if (params.fastq) {
-        sample_data = fastq_ingress(ingress_args + ["input": params.fastq])
+        sample_data = fastq_ingress(
+            ingress_args + [
+                "stats": true,  // must be true to engage fastcat for reheadering
+                "input": params.fastq,
+                "fastcat_extra_args": "--reheader",
+            ]
+        )
     } else {
         sample_data = xam_ingress(
-            ingress_args + ["input": params.bam, "keep_unaligned": true]
+            ingress_args + [
+                "stats": false,  // not required, we'll call bamstats post-alignment
+                "input": params.bam,
+                "keep_unaligned": true,
+            ]
         )
     }
 
