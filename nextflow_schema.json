@@ -199,7 +199,8 @@
                 "store_dir": {
                     "type": "string",
                     "description": "Unused.",
-                    "hidden": true
+                    "hidden": true,
+                    "format": "directory-path"
                 }
             }
         }
